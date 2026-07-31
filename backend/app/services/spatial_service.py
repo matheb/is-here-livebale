@@ -67,8 +67,8 @@ def get_poi(lat: float, long: float) -> dict:
     poi_gdf = gpd.GeoDataFrame(
         {"id": [1]}, geometry=[Point(long, lat)], crs=WGS84
     )
-    # geometry = poi_gdf.geometry
-    geometry = mapping(poi_gdf[0])
+
+    geometry = mapping(poi_gdf.geometry.iloc[0])
     print(geometry)
 
     return {
@@ -77,6 +77,7 @@ def get_poi(lat: float, long: float) -> dict:
         "properties": {
             "source_latitude": lat,
             "source_longitude": long,
-            "id": f"{lat}-{long}"
+            "id": f"{lat}-{long}",
+
         },
     }

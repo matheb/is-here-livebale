@@ -61,7 +61,7 @@ export default function MapView({ onClosePoiPopup, onMapClick, selectedPoi }: Ma
 
             {selectedPoi.status === POI_STATUS.ready && (
               <div>
-                <strong>{selectedPoi.name ?? "Selected point"}</strong>
+                <strong>{selectedPoi.name ?? LABEL.selected_POI_label_placeholder}</strong>
                 {selectedPoi.address && (
                   <div style={{ marginTop: "0.25rem" }}>{selectedPoi.address}</div>
                 )}

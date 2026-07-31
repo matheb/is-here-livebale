@@ -19,15 +19,25 @@ class ExternalAPIClient:
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         headers = {"User-Agent": self._settings.external_api_user_agent}
-        if self._settings.external_api_key:
-            headers["Authorization"] = f"Bearer {self._settings.external_api_key}"
+        request_params = dict(params or {})
 
+        if self._settings.external_api_key:
+            if self._settings.external_api_key_param_name:
+                # e.g. LocationIQ/Geoapify/OpenCage: key goes in the query string
+                request_params[self._settings.external_api_key_param_name] = (
+                    self._settings.external_api_key
+                )
+            else:
+                # Default: Authorization: Bearer <key>
+                headers["Authorization"] = f"Bearer {self._settings.external_api_key}"
+
+        print(f"request_params-------- {request_params}")
         async with httpx.AsyncClient(
             base_url=self._settings.external_api_base_url,
             timeout=self._settings.external_api_timeout_seconds,
             headers=headers,
         ) as client:
-            response = await client.get(path, params=params)
+            response = await client.get(path, params=request_params)
             response.raise_for_status()
             return response.json()
 
@@ -35,15 +45,16 @@ class ExternalAPIClient:
         """Example call against OpenStreetMap Nominatim (the default configured API)."""
         return await self.get(
             "/search",
-            params={"q": query, "format": "jsonv2", "limit": 5},
+            params={"q": query, "format": "json", "limit": 5},
         )
     async def reverse_geocode(self, latitude: float, longitude: float) -> dict[str, Any]:
         """Reverse-geocode a lat/lon into a name/address via the configured API
         (OSM Nominatim's /reverse by default).
         """
+
         return await self.get(
             "/reverse",
-            params={"lat": latitude, "lon": longitude, "format": "jsonv2"},
+            params={"lat": latitude, "lon": longitude, "format": "json"},
         )
 
 

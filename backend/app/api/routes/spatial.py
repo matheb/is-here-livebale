@@ -53,11 +53,13 @@ async def get_poi(
         reverse_result = {}
 
     address_details = reverse_result.get("address", {})
+    display_name = reverse_result.get("display_name", {})
     feature["properties"].update(
         {
             "name": reverse_result.get("name") or None,
             "address": reverse_result.get("display_name"),
             "address_details": address_details or None,
+            "display_name": display_name or None,
         }
     )
 

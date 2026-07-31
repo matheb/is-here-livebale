@@ -4,6 +4,7 @@ export const LABEL = {
   buffer: "Buffer distance (m)",
   loading_POI_label: "Loading point details",
   loading_POI: "Looking up this point…",
+  selected_POI_label_placeholder: "Selected point",
 };
 
 export const ERROR = {
