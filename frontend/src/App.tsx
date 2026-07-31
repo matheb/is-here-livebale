@@ -26,7 +26,7 @@ export default function App() {
     setSelectedPoi({ latitude, longitude, status: POI_STATUS.loading, name: null, address: null });
 
     try {
-      const poi = await api.getPoi(latitude, longitude);
+      const poi = await api.get_poi(latitude, longitude);
       if (latestPoiRequestId.current !== requestId) return;
       setSelectedPoi({
         latitude,
