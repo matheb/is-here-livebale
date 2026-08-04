@@ -116,6 +116,37 @@ don't share Nominatim's `/search`/`/reverse` + `format=jsonv2` contract:
    parsed (e.g. `item["lat"]`/`item["lon"]` → whatever fields that
    provider returns) and mapped onto `GeocodeResult` / the POI's
    `name`/`address` properties.
+
+## Logging
+ 
+Every call to a third-party API flows through `ExternalAPIClient.get()`
+(`app/services/external_api.py`), which logs consistently regardless of
+which route/method is calling it:
+ 
+| Level | What it logs |
+|---|---|
+| `DEBUG` | The exact request as httpx will actually send it: method, full URL with query string, and headers (API key **redacted** wherever it appears — query param or header) |
+| `INFO` | Successful responses, with status code and timing |
+| `WARNING` | Non-2xx responses, including the **response body** (the actual reason a request was rejected — invalid key, bad param, quota, etc.) |
+| `ERROR` | Network-level failures (timeout, connection refused, DNS) |
+ 
+The request is built explicitly via `client.build_request()` before being
+logged and sent, so what you see in the log is the literal request on the
+wire — not an approximation reconstructed from the base URL/path/params
+separately.
+ 
+Routes add their own business-context log line on top (e.g. "Reverse
+geocode failed for (lat, lon): ..." in `/spatial/poi`), so a failure shows
+both *what* went wrong at the HTTP level and *which* request in the app
+triggered it.
+ 
+Control verbosity via `LOG_LEVEL` in `.env` (`DEBUG`/`INFO`/`WARNING`/
+`ERROR`) — `DEBUG` is especially useful when diagnosing a new third-party
+API integration, since it shows the exact outgoing request. Logging is
+configured once at startup in `app/logging_config.py`; without this,
+FastAPI/uvicorn don't configure Python's root logger, so `INFO`/`DEBUG`
+calls would otherwise be silently dropped.
+
 ## Click-to-select POI
  
 Click anywhere on the map to drop a marker at that point and fetch its

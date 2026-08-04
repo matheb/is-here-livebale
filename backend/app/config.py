@@ -9,6 +9,10 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     cors_origins: str = "http://localhost:5173"
+    # DEBUG shows every outgoing third-party request (with the API key
+    # redacted); INFO shows successful calls + timing; WARNING shows only
+    # failures. See app/logging_config.py.
+    log_level: str = "INFO"
 
     external_api_base_url: str = "https://nominatim.openstreetmap.org"
     external_api_key: str = ""

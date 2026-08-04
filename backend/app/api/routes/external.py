@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from httpx import HTTPError, HTTPStatusError
 
 from app.models.schemas import GeocodeResult
 from app.services.external_api import ExternalAPIClient, get_external_api_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/external", tags=["external"])
 
@@ -18,14 +22,17 @@ async def geocode(
     try:
         results = await client.geocode(q)
     except HTTPStatusError as exc:
+        logger.warning("Geocode failed for query %r: %s", q, exc)
         raise HTTPException(status_code=exc.response.status_code, detail=str(exc)) from exc
     except HTTPError as exc:
         # Network-level failures (timeout, connection refused, DNS, etc.)
+        logger.warning("Geocode failed for query %r: %s", q, exc)
         raise HTTPException(
             status_code=502, detail=f"Upstream geocoding request failed: {exc}"
         ) from exc
     except ValueError as exc:
         # e.g. the upstream response body wasn't valid JSON
+        logger.warning("Geocode failed for query %r: %s", q, exc)
         raise HTTPException(
             status_code=502, detail="Upstream geocoding service returned an invalid response"
         ) from exc

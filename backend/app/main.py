@@ -3,10 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import external, health, spatial
 from app.config import get_settings
+from app.logging_config import configure_logging
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    configure_logging()
 
     app = FastAPI(
         title="Spatial API Backend",
