@@ -9,18 +9,13 @@ export interface GeoJSONFeatureCollection {
   }>;
 }
 
-
-export interface GeoJSONFeature {
-  type: "Feature";
-  geometry: GeoJSON.Geometry;
-  properties: Record<string, unknown>;
-}
-
 export interface GeocodeResult {
   display_name: string;
   latitude: number;
   longitude: number;
 }
+
+export type IsochroneMode = "drive" | "walk" | "bicycle" | "transit";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -30,28 +25,46 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new Error(`Request to ${path} failed with status ${response.status}`);
   }
-
   return response.json() as Promise<T>;
 }
 
 export const api = {
-  get_poi: (latitude: number, longitude: number) => {
-    console.log("lat", latitude);
-    console.log("long", longitude);
+  getSampleFeatures: () => request<GeoJSONFeatureCollection>("/spatial/sample"),
 
-    return request<{
-      type: string;
-      geometry: GeoJSON.Geometry;
-      properties: Record<string, unknown>;
-    }>("/spatial/poi", {
+  getPoi: (latitude: number, longitude: number) =>
+    request<{ type: string; geometry: GeoJSON.Geometry; properties: Record<string, unknown> }>(
+      "/spatial/poi",
+      {
+        method: "POST",
+        body: JSON.stringify({ latitude, longitude }),
+      },
+    ),
+
+  bufferPoint: (latitude: number, longitude: number, distanceMeters: number) =>
+    request<{ type: string; geometry: GeoJSON.Geometry; properties: Record<string, unknown> }>(
+      "/spatial/buffer",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          latitude,
+          longitude,
+          distance_meters: distanceMeters,
+        }),
+      },
+    ),
+
+  geocode: (query: string) =>
+    request<GeocodeResult[]>(`/external/geocode?q=${encodeURIComponent(query)}`),
+
+  getIsochrone: (latitude: number, longitude: number, mode: IsochroneMode, rangeMinutes: number) =>
+    request<GeoJSONFeatureCollection>("/spatial/isochrone", {
       method: "POST",
       body: JSON.stringify({
         latitude,
         longitude,
+        mode,
+        range_minutes: rangeMinutes,
       }),
-    });
-  },
-
-  geocode: (query: string) =>
-    request<GeocodeResult[]>(`/external/geocode?q=${encodeURIComponent(query)}`),
+    }),
 };
+

@@ -40,6 +40,7 @@ uvicorn app.main:app --reload    # hot reload dev server on http://localhost:800
 | GET    | `/spatial/sample`      | Sample GeoJSON FeatureCollection               |
 | POST   | `/spatial/poi`         | Return a chosen lat/lon point as GeoJSON, enriched with name/address via reverse geocoding |
 | POST   | `/spatial/buffer`      | Buffer a lat/lon point by meters → GeoJSON     |
+| POST   | `/spatial/isochrone`   | Reachable-area polygon around a point (drive/walk/bicycle/transit) via the configured isochrone provider |
 | GET    | `/external/geocode`    | Proxies a geocode lookup to the 3rd-party API  |
  
 Point the backend at any other third-party API by changing
@@ -97,7 +98,7 @@ most providers via config alone:
 - **Query-string key**: set `EXTERNAL_API_KEY_PARAM_NAME` (e.g. `key`) and
   the key is sent as `?<name>=<EXTERNAL_API_KEY>` instead
 **Nominatim-compatible providers** (e.g. LocationIQ, which mirrors
-Nominatim's `/search` and `/reverse` endpoints and `format=jsonv2` response
+Nominatim's `/search` and `/reverse` endpoints and `format=json` response
 shape) need **no code changes** — just update `.env`:
 ```bash
 EXTERNAL_API_BASE_URL=https://us1.locationiq.com/v1
@@ -108,7 +109,7 @@ See the commented example in `.env.example`.
  
 **Providers with a different API shape** (Google, Mapbox, Geoapify's own
 format, etc.) need the request/response handling updated too, since they
-don't share Nominatim's `/search`/`/reverse` + `format=jsonv2` contract:
+don't share Nominatim's `/search`/`/reverse` + `format=json` contract:
 1. `ExternalAPIClient.geocode()` / `.reverse_geocode()` — update the path
    and query params to match the provider's API.
 2. `app/api/routes/external.py` (`geocode`) and
@@ -116,7 +117,14 @@ don't share Nominatim's `/search`/`/reverse` + `format=jsonv2` contract:
    parsed (e.g. `item["lat"]`/`item["lon"]` → whatever fields that
    provider returns) and mapped onto `GeocodeResult` / the POI's
    `name`/`address` properties.
-
+**The isochrone provider is configured independently** of the geocoding
+provider above (`ISOCHRONE_API_*` settings vs `EXTERNAL_API_*`) — see
+`ExternalAPIClient`'s `provider="geocoding"|"isochrone"` parameter, which
+selects which config block to use. This matters because they're commonly
+different vendors (e.g. LocationIQ for geocoding, Geoapify for
+isochrones, as set up in this project) with separate base URLs, keys, and
+auth styles.
+ 
 ## Logging
  
 Every call to a third-party API flows through `ExternalAPIClient.get()`
@@ -146,8 +154,8 @@ API integration, since it shows the exact outgoing request. Logging is
 configured once at startup in `app/logging_config.py`; without this,
 FastAPI/uvicorn don't configure Python's root logger, so `INFO`/`DEBUG`
 calls would otherwise be silently dropped.
-
-## Click-to-select POI
+ 
+## Click-to-select POI & isochrones
  
 Click anywhere on the map to drop a marker at that point and fetch its
 details via `POST /spatial/poi` — the popup shows a Calcite loader while
@@ -156,6 +164,28 @@ the reverse-geocode lookup is in flight, then the resolved name/address
 Click the popup's close button to clear the selection. See
 `frontend/src/components/MapView.tsx` (`ClickHandler`) and
 `frontend/src/App.tsx` (`handleMapClick`) for the implementation.
+ 
+The same click also fetches an isochrone (reachable-area polygon) around
+that point via `POST /spatial/isochrone`, drawn as a second, distinctly
+colored shape on the map. This runs **in parallel** with the POI lookup —
+neither blocks on the other — via `fetchIsochroneFor()` in `App.tsx`, with
+its own loading state and out-of-order-response guard (relevant since
+isochrone lookups can take a few seconds, sometimes longer if the provider
+computes it asynchronously — see below). Mode (drive/walk/bicycle/transit)
+and range (minutes) are adjustable in the toolbar; changing them and
+clicking "Update isochrone" recomputes for the currently selected point
+without needing to click the map again.
+ 
+### Handling async isochrone providers (Geoapify's 202 pattern)
+ 
+Geoapify's Isoline API sometimes computes isochrones asynchronously: a
+`202` response means "still computing," with an `id` to poll for the
+result rather than an immediate `200`. `ExternalAPIClient.get_isochrone()`
+(`app/services/external_api.py`) handles this transparently — polling
+automatically (every 2s, up to 10 attempts by default) until the result
+is ready, or raising `TimeoutError` if it never completes. Callers (the
+`/spatial/isochrone` route) always just get back the final GeoJSON, or a
+clean error — the polling detail is fully encapsulated in the client.
  
 ## Notes on the design system
  

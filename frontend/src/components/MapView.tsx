@@ -1,27 +1,31 @@
-import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
-import { GeoJSONFeatureCollection } from "../api/client";
-import { default_zoom, GRAZ_COORD } from "../const/map";
-import { useState } from "react";
 import { CalciteLoader, CalciteNotice } from "@esri/calcite-components-react";
-import ResizeHandler from "./ResizeHandler";
-import { SelectedPoi } from "../interfaces/poi";
-import ClickHandler from "./ClickHandler";
+import { GeoJSON, MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import type { GeoJSONFeatureCollection } from "../api/client";
+import type { SelectedPoi } from "../interfaces/poi";
+import { POI_STATUS } from "../const/status";
 import { ERROR, LABEL } from "../const/text";
-import {POI_STATUS} from "../const/status";
+import {default_zoom, GRAZ_COORD} from "../const/map";
+import {useState} from "react";
+import ResizeHandler from "./ResizeHandler";
+import ClickHandler from "./ClickHandler";
 
 interface MapViewProps {
-  bufferFeature?: GeoJSON.Feature | null;
-  features?: GeoJSONFeatureCollection | null;
+  isochrone: GeoJSONFeatureCollection | null;
   selectedPoi: SelectedPoi | null;
   onMapClick: (latitude: number, longitude: number) => void;
   onClosePoiPopup: () => void;
 }
 
-export default function MapView({ onClosePoiPopup, onMapClick, selectedPoi }: MapViewProps) {
-  const DEFAULT_CENTER: [number, number] = [GRAZ_COORD.lat, GRAZ_COORD.long];
-  const DEFAULT_ZOOM = default_zoom;
+export default function MapView({
+  isochrone,
+  selectedPoi,
+  onMapClick,
+  onClosePoiPopup,
+}: MapViewProps) {
+   const DEFAULT_CENTER: [number, number] = [GRAZ_COORD.lat, GRAZ_COORD.long];
+   const DEFAULT_ZOOM = default_zoom;
 
-  const [error, setError] = useState<string | null>(null);
+   const [error, setError] = useState<string | null>(null);
 
   return (
     <MapContainer
@@ -44,6 +48,16 @@ export default function MapView({ onClosePoiPopup, onMapClick, selectedPoi }: Ma
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+
+      {isochrone && (
+        <GeoJSON
+          // Re-mount on new data so react-leaflet's GeoJSON layer (which
+          // doesn't diff its `data` prop) actually redraws the new shape.
+          key={JSON.stringify(isochrone.features.map((f) => f.properties))}
+          data={isochrone}
+          style={{ color: "#d2691e", weight: 2, fillOpacity: 0.12 }}
+        />
+      )}
 
       {selectedPoi && (
         <>

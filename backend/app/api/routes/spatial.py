@@ -1,11 +1,21 @@
 import logging
 
-from fastapi import APIRouter, Depends
-from app.services.external_api import ExternalAPIClient, get_external_api_client
+from fastapi import APIRouter, Depends, HTTPException
+from httpx import HTTPError, HTTPStatusError
 
-from app.models.schemas import BufferRequest, GeoJSONFeature, GeoJSONFeatureCollection, POIRequest
+from app.models.schemas import (
+    BufferRequest,
+    GeoJSONFeature,
+    GeoJSONFeatureCollection,
+    IsochroneRequest,
+    PointRequest,
+)
 from app.services import spatial_service
-from app.services.external_api import ExternalAPIClient
+from app.services.external_api import (
+    ExternalAPIClient,
+    get_external_api_client,
+    get_isochrone_api_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +30,7 @@ def get_sample_features() -> dict:
 
 @router.post("/poi", response_model=GeoJSONFeature)
 async def get_poi(
-        request: POIRequest,
+        request: PointRequest,
         client: ExternalAPIClient = Depends(get_external_api_client),
 ) -> dict:
     """Return a chosen lat/lon point as a GeoJSON Point Feature, with no buffering.
@@ -74,3 +84,48 @@ def buffer_point(request: BufferRequest) -> dict:
         longitude=request.longitude,
         distance_meters=request.distance_meters,
     )
+
+
+@router.post("/isochrone", response_model=GeoJSONFeatureCollection)
+async def get_isochrone(
+        request: IsochroneRequest,
+        client: ExternalAPIClient = Depends(get_isochrone_api_client),
+) -> dict:
+    """Return an isochrone (reachable-area polygon) around a point, via the
+    configured isochrone provider (Geoapify's Isoline API by default).
+
+    Unlike /spatial/poi's reverse-geocode enrichment, the isochrone *is*
+    the requested payload here rather than a nice-to-have addition — so
+    failures are surfaced as proper error responses rather than degraded
+    silently.
+    """
+    try:
+        result = await client.get_isochrone(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            mode=request.mode,
+            range_seconds=request.range_minutes * 60,
+        )
+    except HTTPStatusError as exc:
+        logger.warning(
+            "Isochrone failed for (%s, %s): %s", request.latitude, request.longitude, exc
+        )
+        raise HTTPException(status_code=exc.response.status_code, detail=str(exc)) from exc
+    except HTTPError as exc:
+        # Network-level failures (timeout, connection refused, DNS, etc.)
+        logger.warning(
+            "Isochrone failed for (%s, %s): %s", request.latitude, request.longitude, exc
+        )
+        raise HTTPException(
+            status_code=502, detail=f"Upstream isochrone request failed: {exc}"
+        ) from exc
+    except (ValueError, TimeoutError) as exc:
+        # e.g. an invalid/unparseable response, or the async-computation
+        # polling loop in get_isochrone() never resolved in time
+        logger.warning(
+            "Isochrone failed for (%s, %s): %s", request.latitude, request.longitude, exc
+        )
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return result
+
