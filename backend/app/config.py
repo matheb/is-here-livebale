@@ -30,6 +30,15 @@ class Settings(BaseSettings):
 
     external_api_user_agent: str = "is_liveable_here_backend/0.1 (boglarka298@gmail.com)"
 
+    # Isochrone provider (reachable-area polygons) — a separate service from
+    # the geocoding provider above, since they're commonly different vendors.
+    # Defaults to Geoapify's Isoline API (free tier: 3,000 credits/day).
+    isochrone_api_base_url: str = "https://api.geoapify.com/v1"
+    isochrone_api_key: str = ""
+    isochrone_api_key_param_name: str = "apiKey"
+    isochrone_api_timeout_seconds: float = 15.0
+
+
 
     @property
     def cors_origin_list(self) -> list[str]:
