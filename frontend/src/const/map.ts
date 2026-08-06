@@ -5,3 +5,11 @@ export const GRAZ_COORD = {
 
 export const initial_distance = '1000'
 export const default_zoom = 13
+
+
+export enum COMMUTE_MODE {
+  walk = "walk",
+  bicycle = "bicycle",
+  drive = "drive",
+  transit = "transit",
+}

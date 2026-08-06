@@ -5,6 +5,7 @@ export const LABEL = {
   loading_POI_label: "Loading point details",
   loading_POI: "Looking up this point…",
   selected_POI_label_placeholder: "Selected point",
+  mode_of_commute: "Mode of commute"
 };
 
 export const ERROR = {

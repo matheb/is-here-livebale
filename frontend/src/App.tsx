@@ -4,7 +4,8 @@ import {api, type GeoJSONFeatureCollection, type IsochroneMode} from "./api/clie
 import MapView from "./components/MapView";
 import type {SelectedPoi} from "./interfaces/poi";
 import {POI_STATUS} from "./const/status";
-import {SITE_HEADING, SITE_SUBTITLE} from "./const/text";
+import { LABEL, SITE_HEADING, SITE_SUBTITLE } from "./const/text";
+import {COMMUTE_MODE} from "./const/map";
 
 export default function App() {
   const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
@@ -16,7 +17,11 @@ export default function App() {
   const [isochroneLoading, setIsochroneLoading] = useState(false);
   const latestIsochroneRequestId = useRef(0);
 
-  async function fetchIsochroneFor(latitude: number, longitude: number) {
+  async function fetchIsochroneFor(
+    latitude: number,
+    longitude: number,
+    isochroneMode: IsochroneMode,
+  ) {
     // Guard against out-of-order responses the same way handleMapClick
     // does — relevant here too since isochrone lookups can be slow
     // (Geoapify sometimes computes them asynchronously and this polls for
@@ -38,7 +43,6 @@ export default function App() {
       setIsochrone(result);
     } catch (err) {
       if (latestIsochroneRequestId.current !== requestId) return;
-      // setError(err instanceof Error ? err.message : String(err));
     } finally {
       if (latestIsochroneRequestId.current === requestId) setIsochroneLoading(false);
     }
@@ -56,7 +60,7 @@ export default function App() {
 
     // Fetch the isochrone in parallel — it's a separate concern from the
     // POI lookup and shouldn't block on it, or vice versa.
-    void fetchIsochroneFor(latitude, longitude);
+    void fetchIsochroneFor(latitude, longitude, isochroneMode);
 
     try {
       const poi = await api.getPoi(latitude, longitude);
@@ -76,66 +80,83 @@ export default function App() {
 
   return (
     <calcite-shell className="app-shell">
-      <calcite-navigation slot="header">
-        <calcite-navigation-logo slot="logo" heading={SITE_HEADING} description={SITE_SUBTITLE} />
-        <calcite-action slot="content-end" icon="map" text="Map" />
-      </calcite-navigation>
+      <div className="grid-container">
+        <calcite-tile
+          className="panel-title"
+          heading={SITE_HEADING}
+          description={SITE_SUBTITLE}
+        ></calcite-tile>
 
-      <div
-        style={{
-          padding: "0.75rem 1rem",
-          display: "flex",
-          gap: "0.75rem",
-          alignItems: "end",
-          flexWrap: "wrap",
-        }}
-      >
-        <calcite-label style={{ maxWidth: 160 }}>
-          Isochrone mode
-          <calcite-select
-            value={isochroneMode}
-            label={"PLACEHOLDER LABEL"}
-            onChange={(e) =>
-              setIsochroneMode((e.target as unknown as HTMLSelectElement).value as IsochroneMode)
-            }
+        <calcite-tile
+          className="panel-info"
+          heading={selectedPoi?.name ?? LABEL.selected_POI_label_placeholder}
+          description={selectedPoi?.address ?? ""}
+        ></calcite-tile>
+
+        <calcite-panel className="panel-filter">
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              display: "flex",
+              gap: "0.75rem",
+              alignItems: "end",
+              flexWrap: "wrap",
+            }}
           >
-            <calcite-option value="walk">Walk</calcite-option>
-            <calcite-option value="bicycle">Bicycle</calcite-option>
-            <calcite-option value="drive">Drive</calcite-option>
-            <calcite-option value="transit">Public transit</calcite-option>
-          </calcite-select>
-        </calcite-label>
-        <calcite-label style={{ maxWidth: 120 }}>
-          Range (min)
-          <calcite-input
-            type="number"
-            value={isochroneRangeMinutes}
-            onInput={(e) =>
-              setIsochroneRangeMinutes((e.target as unknown as HTMLInputElement).value)
-            }
+            <calcite-label style={{ maxWidth: 160 }}>
+              {LABEL.mode_of_commute}
+              <calcite-select
+                value={isochroneMode}
+                label={""}
+                oncalciteSelectChange={(e) => {
+                  return setIsochroneMode(
+                    (e.target as unknown as HTMLSelectElement).value as IsochroneMode,
+                  );
+                }}
+              >
+                <calcite-option value={COMMUTE_MODE.walk}>Walk</calcite-option>
+                <calcite-option value={COMMUTE_MODE.bicycle}>Bicycle</calcite-option>
+                <calcite-option value={COMMUTE_MODE.drive}>Drive</calcite-option>
+                <calcite-option value={COMMUTE_MODE.transit}>Public transit</calcite-option>
+              </calcite-select>
+            </calcite-label>
+            <calcite-label style={{ maxWidth: 120 }}>
+              Range (min)
+              <calcite-input
+                type="number"
+                value={isochroneRangeMinutes}
+                oncalciteInputInput={(e) =>
+                  setIsochroneRangeMinutes((e.target as unknown as HTMLInputElement).value)
+                }
+              />
+            </calcite-label>
+
+            {selectedPoi && (
+              <calcite-button
+                appearance="outline"
+                loading={isochroneLoading}
+                onClick={() =>
+                  fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
+                }
+              >
+                Update isochrone
+              </calcite-button>
+            )}
+          </div>
+        </calcite-panel>
+
+        <calcite-panel className="panel-map">
+          <MapView
+            isochrone={isochrone}
+            selectedPoi={selectedPoi}
+            onMapClick={handleMapClick}
+            onClosePoiPopup={() => {
+              setSelectedPoi(null);
+              setIsochrone(null);
+            }}
           />
-        </calcite-label>
-
-        {selectedPoi && (
-          <calcite-button
-            appearance="outline"
-            loading={isochroneLoading}
-            onClick={() => fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude)}
-          >
-            Update isochrone
-          </calcite-button>
-        )}
+        </calcite-panel>
       </div>
-
-      <MapView
-        isochrone={isochrone}
-        selectedPoi={selectedPoi}
-        onMapClick={handleMapClick}
-        onClosePoiPopup={() => {
-          setSelectedPoi(null);
-          setIsochrone(null);
-        }}
-      />
     </calcite-shell>
   );
 }

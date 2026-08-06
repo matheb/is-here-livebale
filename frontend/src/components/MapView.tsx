@@ -7,6 +7,29 @@ import { default_zoom, GRAZ_COORD } from "../const/map";
 import { useState } from "react";
 import ResizeHandler from "./ResizeHandler";
 import ClickHandler from "./ClickHandler";
+import { divIcon } from "leaflet";
+import { renderToString } from "react-dom/server";
+
+const customIcon = divIcon({
+  html: renderToString(
+    <div
+      style={{
+        backgroundColor: "darkgreen",
+        color: "white",
+        borderRadius: "50%",
+        height: "30px",
+        width: "30px",
+        position: "absolute",
+        left: "-15px",
+        top: "-15px",
+        padding: "5px",
+      }}
+    >
+      <calcite-icon icon="home" style={{ position: "absolute", left: "7px", top: "7px" }} />
+    </div>,
+  ),
+  className: "",
+});
 
 interface MapViewProps {
   isochrone: GeoJSONFeatureCollection | null;
@@ -25,6 +48,8 @@ export default function MapView({
   const DEFAULT_ZOOM = default_zoom;
 
   const [error, setError] = useState<string | null>(null);
+
+  const isPOIFetched = selectedPoi?.status === POI_STATUS.ready;
 
   return (
     <MapContainer
@@ -66,8 +91,11 @@ export default function MapView({
 
       {selectedPoi && (
         <>
-          <Marker position={[selectedPoi.latitude, selectedPoi.longitude]} />
-          <Popup
+          <Marker
+            position={[selectedPoi.latitude, selectedPoi.longitude]}
+            icon={customIcon}
+          />
+          {!isPOIFetched && <Popup
             position={[selectedPoi.latitude, selectedPoi.longitude]}
             eventHandlers={{ remove: onClosePoiPopup }}
           >
@@ -75,18 +103,6 @@ export default function MapView({
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <calcite-loader inline label={LABEL.loading_POI_label} />
                 <span>{LABEL.loading_POI}</span>
-              </div>
-            )}
-
-            {selectedPoi.status === POI_STATUS.ready && (
-              <div>
-                <strong>{selectedPoi.name ?? LABEL.selected_POI_label_placeholder}</strong>
-                {selectedPoi.address && (
-                  <div style={{ marginTop: "0.25rem" }}>{selectedPoi.address}</div>
-                )}
-                <div style={{ marginTop: "0.25rem", fontSize: "0.8em", color: "#666" }}>
-                  {selectedPoi.latitude.toFixed(5)}, {selectedPoi.longitude.toFixed(5)}
-                </div>
               </div>
             )}
 
@@ -98,7 +114,7 @@ export default function MapView({
                 </div>
               </div>
             )}
-          </Popup>
+          </Popup>}
         </>
       )}
     </MapContainer>
