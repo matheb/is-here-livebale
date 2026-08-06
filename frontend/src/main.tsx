@@ -1,4 +1,3 @@
-import "@esri/calcite-components/dist/calcite/calcite.css";
 import "leaflet/dist/leaflet.css";
 import "./index.css";
 
@@ -10,7 +9,7 @@ import App from "./App";
 
 // Registers the Calcite web components (Esri's design system) for use
 // throughout the app, e.g. <calcite-shell>, <calcite-button>, etc.
-defineCustomElements(window);
+defineCustomElements();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

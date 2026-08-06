@@ -1,21 +1,10 @@
-import {
-  CalciteAction,
-  CalciteButton,
-  CalciteInput,
-  CalciteLabel,
-  CalciteNavigation,
-  CalciteNavigationLogo,
-  CalciteOption,
-  CalciteSelect,
-  CalciteShell,
-} from "@esri/calcite-components-react";
-import { useRef, useState } from "react";
+import {useRef, useState} from "react";
 
-import { api, type GeoJSONFeatureCollection, type IsochroneMode } from "./api/client";
+import {api, type GeoJSONFeatureCollection, type IsochroneMode} from "./api/client";
 import MapView from "./components/MapView";
-import type { SelectedPoi } from "./interfaces/poi";
-import { POI_STATUS } from "./const/status";
-import { LABEL, SITE_HEADING, SITE_SUBTITLE } from "./const/text";
+import type {SelectedPoi} from "./interfaces/poi";
+import {POI_STATUS} from "./const/status";
+import {SITE_HEADING, SITE_SUBTITLE} from "./const/text";
 
 export default function App() {
   const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
@@ -86,11 +75,11 @@ export default function App() {
   }
 
   return (
-    <CalciteShell className="app-shell">
-      <CalciteNavigation slot="header">
-        <CalciteNavigationLogo slot="logo" heading={SITE_HEADING} description={SITE_SUBTITLE} />
-        <CalciteAction slot="content-end" icon="map" text="Map" />
-      </CalciteNavigation>
+    <calcite-shell className="app-shell">
+      <calcite-navigation slot="header">
+        <calcite-navigation-logo slot="logo" heading={SITE_HEADING} description={SITE_SUBTITLE} />
+        <calcite-action slot="content-end" icon="map" text="Map" />
+      </calcite-navigation>
 
       <div
         style={{
@@ -101,50 +90,41 @@ export default function App() {
           flexWrap: "wrap",
         }}
       >
-        <CalciteLabel style={{ maxWidth: 200 }}>
-          {LABEL.buffer}
-          <CalciteInput type="text" />
-        </CalciteLabel>
-        {/*<CalciteButton onClick={handleBufferGraz}>Buffer point around Graz</CalciteButton>*/}
-
-        <CalciteLabel style={{ maxWidth: 160 }}>
+        <calcite-label style={{ maxWidth: 160 }}>
           Isochrone mode
-          <CalciteSelect
+          <calcite-select
             value={isochroneMode}
             label={"PLACEHOLDER LABEL"}
-            onCalciteSelectChange={(e) =>
+            onChange={(e) =>
               setIsochroneMode((e.target as unknown as HTMLSelectElement).value as IsochroneMode)
             }
           >
-            <CalciteOption value="walk">Walk</CalciteOption>
-            <CalciteOption value="bicycle">Bicycle</CalciteOption>
-            <CalciteOption value="drive">Drive</CalciteOption>
-            <CalciteOption value="transit">Public transit</CalciteOption>
-          </CalciteSelect>
-        </CalciteLabel>
-        <CalciteLabel style={{ maxWidth: 120 }}>
+            <calcite-option value="walk">Walk</calcite-option>
+            <calcite-option value="bicycle">Bicycle</calcite-option>
+            <calcite-option value="drive">Drive</calcite-option>
+            <calcite-option value="transit">Public transit</calcite-option>
+          </calcite-select>
+        </calcite-label>
+        <calcite-label style={{ maxWidth: 120 }}>
           Range (min)
-          <CalciteInput
+          <calcite-input
             type="number"
             value={isochroneRangeMinutes}
-            onCalciteInputInput={(e) =>
+            onInput={(e) =>
               setIsochroneRangeMinutes((e.target as unknown as HTMLInputElement).value)
             }
           />
-        </CalciteLabel>
+        </calcite-label>
+
         {selectedPoi && (
-          <CalciteButton
+          <calcite-button
             appearance="outline"
             loading={isochroneLoading}
             onClick={() => fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude)}
           >
             Update isochrone
-          </CalciteButton>
+          </calcite-button>
         )}
-
-        {/*<span style={{ fontSize: "0.85rem", color: "#666" }}>*/}
-        {/*  Click anywhere on the map to look up that point and show its isochrone*/}
-        {/*</span>*/}
       </div>
 
       <MapView
@@ -156,6 +136,6 @@ export default function App() {
           setIsochrone(null);
         }}
       />
-    </CalciteShell>
+    </calcite-shell>
   );
 }

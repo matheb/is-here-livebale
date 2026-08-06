@@ -1,11 +1,10 @@
-import { CalciteLoader, CalciteNotice } from "@esri/calcite-components-react";
 import { GeoJSON, MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 import type { GeoJSONFeatureCollection } from "../api/client";
 import type { SelectedPoi } from "../interfaces/poi";
 import { POI_STATUS } from "../const/status";
 import { ERROR, LABEL } from "../const/text";
-import {default_zoom, GRAZ_COORD} from "../const/map";
-import {useState} from "react";
+import { default_zoom, GRAZ_COORD } from "../const/map";
+import { useState } from "react";
 import ResizeHandler from "./ResizeHandler";
 import ClickHandler from "./ClickHandler";
 
@@ -22,10 +21,10 @@ export default function MapView({
   onMapClick,
   onClosePoiPopup,
 }: MapViewProps) {
-   const DEFAULT_CENTER: [number, number] = [GRAZ_COORD.lat, GRAZ_COORD.long];
-   const DEFAULT_ZOOM = default_zoom;
+  const DEFAULT_CENTER: [number, number] = [GRAZ_COORD.lat, GRAZ_COORD.long];
+  const DEFAULT_ZOOM = default_zoom;
 
-   const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <MapContainer
@@ -38,9 +37,15 @@ export default function MapView({
       <ClickHandler onMapClick={onMapClick} />
 
       {error && (
-        <CalciteNotice open kind="danger" icon closable onCalciteNoticeClose={() => setError(null)}>
+        <calcite-notice
+          open
+          kind="danger"
+          icon
+          closable
+          oncalciteNoticeClose={() => setError(null)}
+        >
           <div slot="message">{error}</div>
-        </CalciteNotice>
+        </calcite-notice>
       )}
 
       {/* OpenStreetMap tile layer */}
@@ -68,7 +73,7 @@ export default function MapView({
           >
             {selectedPoi.status === POI_STATUS.loading && (
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <CalciteLoader inline label={LABEL.loading_POI_label} />
+                <calcite-loader inline label={LABEL.loading_POI_label} />
                 <span>{LABEL.loading_POI}</span>
               </div>
             )}
