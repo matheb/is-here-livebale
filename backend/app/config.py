@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     isochrone_api_key_param_name: str = "apiKey"
     isochrone_api_timeout_seconds: float = 15.0
 
+    # OSM/Overpass provider (amenities: shops, doctors, schools, restaurants
+    # etc.) — free, no API key needed. Overpass queries can be slow for
+    # larger areas, hence the longer default timeout.
+    overpass_api_base_url: str = "https://overpass-api.de/api"
+    overpass_api_timeout_seconds: float = 30.0
+
+
 
 
     @property

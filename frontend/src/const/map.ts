@@ -13,3 +13,10 @@ export enum COMMUTE_MODE {
   drive = "drive",
   transit = "transit",
 }
+
+export enum AMENITIES {
+  shops = "shops",
+  doctors = "doctors",
+  schools = "schools",
+  restaurants = "restaurants",
+}

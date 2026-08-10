@@ -5,7 +5,8 @@ import MapView from "./components/MapView";
 import type {SelectedPoi} from "./interfaces/poi";
 import {POI_STATUS} from "./const/status";
 import { LABEL, SITE_HEADING, SITE_SUBTITLE } from "./const/text";
-import {COMMUTE_MODE} from "./const/map";
+import { AMENITIES, COMMUTE_MODE } from "./const/map";
+import {Amenities} from "./interfaces/amenties";
 
 export default function App() {
   const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
@@ -16,6 +17,11 @@ export default function App() {
   const [isochrone, setIsochrone] = useState<GeoJSONFeatureCollection | null>(null);
   const [isochroneLoading, setIsochroneLoading] = useState(false);
   const latestIsochroneRequestId = useRef(0);
+
+
+  const [amenities, setAmenities] = useState<Amenities | null>(null);
+  const [amenitiesLoading, setAmenitiesLoading] = useState(false);
+  const latestAmenitiesRequestId = useRef(0);
 
   async function fetchIsochroneFor(
     latitude: number,
@@ -45,6 +51,28 @@ export default function App() {
       if (latestIsochroneRequestId.current !== requestId) return;
     } finally {
       if (latestIsochroneRequestId.current === requestId) setIsochroneLoading(false);
+    }
+  }
+
+  async function fetchAmenitiesForIsochrone(amenity: string, isochrone?: GeoJSONFeatureCollection) {
+    // Guard against out-of-order responses the same way handleMapClick
+    // does — relevant here too since isochrone lookups can be slow
+    // (Geoapify sometimes computes them asynchronously and this polls for
+    // the result), so an earlier click's isochrone could otherwise finish
+    // after a later one and overwrite it on screen.
+    const requestId = ++latestAmenitiesRequestId.current;
+
+    try {
+      if(!isochrone) return;
+      const result = await api.getAmenities(isochrone, amenity);
+      if (latestAmenitiesRequestId.current !== requestId) return;
+      setAmenities({
+        [amenity]: result,
+      });
+    } catch (err) {
+      if (latestAmenitiesRequestId.current !== requestId) return;
+    } finally {
+      if (latestAmenitiesRequestId.current === requestId) setAmenitiesLoading(false);
     }
   }
 
@@ -89,7 +117,7 @@ export default function App() {
 
         <calcite-tile
           className="panel-info"
-          heading={selectedPoi?.name ?? LABEL.selected_POI_label_placeholder}
+          heading={selectedPoi?.name ?? LABEL.section.selected_POI_label_placeholder}
           description={selectedPoi?.address ?? ""}
         ></calcite-tile>
 
@@ -104,7 +132,7 @@ export default function App() {
             }}
           >
             <calcite-label style={{ maxWidth: 160 }}>
-              {LABEL.mode_of_commute}
+              {LABEL.input.mode_of_commute}
               <calcite-select
                 value={isochroneMode}
                 label={""}
@@ -139,7 +167,27 @@ export default function App() {
                   fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
                 }
               >
-                Update isochrone
+                {LABEL.button.update_isochron}
+              </calcite-button>
+            )}
+
+            {isochrone && (
+              <calcite-button
+                appearance="outline"
+                loading={amenitiesLoading}
+                onClick={() => fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone)}
+              >
+                {LABEL.button.shops}
+              </calcite-button>
+            )}
+
+            {isochrone && (
+              <calcite-button
+                appearance="outline"
+                loading={amenitiesLoading}
+                onClick={() => fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone)}
+              >
+                {LABEL.button.doctors}
               </calcite-button>
             )}
           </div>
@@ -148,6 +196,7 @@ export default function App() {
         <calcite-panel className="panel-map">
           <MapView
             isochrone={isochrone}
+            amenities={amenities}
             selectedPoi={selectedPoi}
             onMapClick={handleMapClick}
             onClosePoiPopup={() => {

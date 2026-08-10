@@ -66,5 +66,15 @@ export const api = {
         range_minutes: rangeMinutes,
       }),
     }),
+
+  getAmenities: (isochronePolygon: GeoJSONFeatureCollection, category: string) => {
+    return request<GeoJSONFeatureCollection>("/spatial/amenities", {
+      method: "POST",
+      body: JSON.stringify({
+        polygon: isochronePolygon.features[0].geometry,
+        categories: [category]
+      }),
+    })
+  },
 };
 

@@ -2,8 +2,8 @@
 
 Centralizing the httpx client here means routes stay simple, timeouts /
 headers / base URLs are configured in one place, and the client is easy
-to mock in tests (see tests/test_external.py). Supports two independent
-provider configs (geocoding and isochrone), since those are commonly
+to mock in tests (see tests/test_external.py). Supports three independent
+provider configs (geocoding, isochrone, osm), since those are commonly
 different vendors — see Settings.
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from app.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-Provider = Literal["geocoding", "isochrone"]
+Provider = Literal["geocoding", "isochrone", "osm"]
 
 # Geoapify's Isoline API computes some isochrones asynchronously: a 202
 # response means "still computing," and the result must be polled for
@@ -37,16 +37,25 @@ class ExternalAPIClient:
     def _base_url(self) -> str:
         if self._provider == "isochrone":
             return self._settings.isochrone_api_base_url
+        if self._provider == "osm":
+            return self._settings.overpass_api_base_url
         return self._settings.external_api_base_url
 
     @property
     def _api_key(self) -> str:
+        # Overpass needs no authentication — explicit branch (rather than
+        # falling through to the geocoding provider's key) so an OSM
+        # request can never accidentally pick up an unrelated API key.
+        if self._provider == "osm":
+            return ""
         if self._provider == "isochrone":
             return self._settings.isochrone_api_key
         return self._settings.external_api_key
 
     @property
     def _key_param_name(self) -> str:
+        if self._provider == "osm":
+            return ""
         if self._provider == "isochrone":
             return self._settings.isochrone_api_key_param_name
         return self._settings.external_api_key_param_name
@@ -55,6 +64,8 @@ class ExternalAPIClient:
     def _timeout_seconds(self) -> float:
         if self._provider == "isochrone":
             return self._settings.isochrone_api_timeout_seconds
+        if self._provider == "osm":
+            return self._settings.overpass_api_timeout_seconds
         return self._settings.external_api_timeout_seconds
 
     def _redact_url(self, url: str) -> str:
@@ -77,24 +88,74 @@ class ExternalAPIClient:
             for name, value in headers.items()
         }
 
-    async def _send(self, path: str, params: dict[str, Any] | None = None) -> httpx.Response:
-        """Build, log, and send a GET request; return the raw response.
-
-        Raises on network failure or a non-2xx status. Returns the response
-        object itself (not .json()) so callers that need the status code —
-        e.g. get_isochrone(), to detect Geoapify's async 202 — can inspect
-        it directly.
-        """
+    def _build_headers(self) -> dict[str, str]:
         headers = {"User-Agent": self._settings.external_api_user_agent}
+        if self._api_key and not self._key_param_name:
+            # Default: Authorization: Bearer <key>
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers
+
+    async def _send_and_log(
+        self, client: httpx.AsyncClient, request: httpx.Request, body_preview: str | None = None
+    ) -> httpx.Response:
+        """Shared send/log/error-handling logic for both GET (_send) and
+        POST (_send_post) requests; returns the raw response (not .json())
+        so callers needing the status code — e.g. get_isochrone(), to
+        detect Geoapify's async 202 — can inspect it directly.
+        """
+        redacted_url = self._redact_url(str(request.url))
+
+        logger.debug(
+            "External API request: %s %s headers=%s%s",
+            request.method, redacted_url, self._redact_headers(request.headers),
+            f" body={body_preview[:500]!r}" if body_preview else "",
+        )
+
+        start = time.monotonic()
+        try:
+            response = await client.send(request)
+        except httpx.HTTPError as exc:
+            elapsed_ms = (time.monotonic() - start) * 1000
+            logger.error(
+                "External API request failed: %s %s (%.0fms): %s",
+                request.method, redacted_url, elapsed_ms, exc,
+            )
+            raise
+
+        elapsed_ms = (time.monotonic() - start) * 1000
+
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # The default httpx message is just the status line (e.g.
+            # "400 Bad Request") — the response body usually contains
+            # the actual reason (invalid key, bad param, quota, etc.),
+            # which is essential for diagnosing third-party API errors.
+            body = response.text[:500]
+            logger.warning(
+                "External API returned %s for %s %s (%.0fms). Response body: %s",
+                response.status_code, request.method, redacted_url, elapsed_ms, body,
+            )
+            raise httpx.HTTPStatusError(
+                f"{exc}. Response body: {body!r}",
+                request=exc.request,
+                response=exc.response,
+            ) from exc
+
+        logger.info(
+            "External API request succeeded: %s %s -> %s (%.0fms)",
+            request.method, redacted_url, response.status_code, elapsed_ms,
+        )
+        return response
+
+    async def _send(self, path: str, params: dict[str, Any] | None = None) -> httpx.Response:
+        """Build, log, and send a GET request; return the raw response."""
+        headers = self._build_headers()
         request_params = dict(params or {})
 
-        if self._api_key:
-            if self._key_param_name:
-                # e.g. LocationIQ/Geoapify/OpenCage: key goes in the query string
-                request_params[self._key_param_name] = self._api_key
-            else:
-                # Default: Authorization: Bearer <key>
-                headers["Authorization"] = f"Bearer {self._api_key}"
+        if self._api_key and self._key_param_name:
+            # e.g. LocationIQ/Geoapify/OpenCage: key goes in the query string
+            request_params[self._key_param_name] = self._api_key
 
         async with httpx.AsyncClient(
             base_url=self._base_url,
@@ -107,49 +168,24 @@ class ExternalAPIClient:
             # reconstructing an approximation from the base URL/path/params
             # ourselves, which can drift from what's really on the wire.
             request = client.build_request("GET", path, params=request_params)
-            redacted_url = self._redact_url(str(request.url))
+            return await self._send_and_log(client, request)
 
-            logger.debug(
-                "External API request: %s %s headers=%s",
-                request.method, redacted_url, self._redact_headers(request.headers),
-            )
+    async def _send_post(self, path: str, data: dict[str, Any] | str) -> httpx.Response:
+        """Build, log, and send a POST request (form-encoded body); return
+        the raw response. Used for APIs like Overpass that take a request
+        body rather than query params — GET wouldn't reliably work there
+        given how long an Overpass query string can get.
+        """
+        headers = self._build_headers()
 
-            start = time.monotonic()
-            try:
-                response = await client.send(request)
-            except httpx.HTTPError as exc:
-                elapsed_ms = (time.monotonic() - start) * 1000
-                logger.error(
-                    "External API request failed: %s %s (%.0fms): %s",
-                    request.method, redacted_url, elapsed_ms, exc,
-                )
-                raise
-
-            elapsed_ms = (time.monotonic() - start) * 1000
-
-            try:
-                response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
-                # The default httpx message is just the status line (e.g.
-                # "400 Bad Request") — the response body usually contains
-                # the actual reason (invalid key, bad param, quota, etc.),
-                # which is essential for diagnosing third-party API errors.
-                body_preview = response.text[:500]
-                logger.warning(
-                    "External API returned %s for %s %s (%.0fms). Response body: %s",
-                    response.status_code, request.method, redacted_url, elapsed_ms, body_preview,
-                )
-                raise httpx.HTTPStatusError(
-                    f"{exc}. Response body: {body_preview!r}",
-                    request=exc.request,
-                    response=exc.response,
-                ) from exc
-
-            logger.info(
-                "External API request succeeded: %s %s -> %s (%.0fms)",
-                request.method, redacted_url, response.status_code, elapsed_ms,
-            )
-            return response
+        async with httpx.AsyncClient(
+            base_url=self._base_url,
+            timeout=self._timeout_seconds,
+            headers=headers,
+        ) as client:
+            request = client.build_request("POST", path, data=data)
+            body_preview = data if isinstance(data, str) else str(data)
+            return await self._send_and_log(client, request, body_preview=body_preview)
 
     async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
         response = await self._send(path, params)
@@ -231,6 +267,14 @@ class ExternalAPIClient:
             f"Isochrone (id={isoline_id}) did not complete after {total_wait:.0f}s of polling"
         )
 
+    async def query_overpass(self, query: str) -> dict[str, Any]:
+        """Run a raw Overpass QL query against the configured OSM/Overpass
+        endpoint (overpass-api.de by default). Returns the parsed JSON
+        body — a dict with an "elements" list.
+        """
+        response = await self._send_post("/interpreter", data={"data": query})
+        return response.json()
+
 
 def get_external_api_client() -> ExternalAPIClient:
     """FastAPI dependency factory for the geocoding provider."""
@@ -240,3 +284,8 @@ def get_external_api_client() -> ExternalAPIClient:
 def get_isochrone_api_client() -> ExternalAPIClient:
     """FastAPI dependency factory for the isochrone provider."""
     return ExternalAPIClient(provider="isochrone")
+
+
+def get_osm_api_client() -> ExternalAPIClient:
+    """FastAPI dependency factory for the OSM/Overpass provider."""
+    return ExternalAPIClient(provider="osm")

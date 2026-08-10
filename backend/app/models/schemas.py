@@ -34,6 +34,21 @@ class IsochroneRequest(BaseModel):
     range_minutes: int = Field(15, gt=0, le=60)
 
 
+class AmenitiesRequest(BaseModel):
+    """Request for OSM amenities (shops, doctors, schools, restaurants)
+    within a given polygon — typically an isochrone or buffer result the
+    frontend already has, rather than lat/lon+mode+range (which would mean
+    recomputing the isochrone a second time server-side).
+    """
+
+    polygon: dict[str, Any] = Field(
+        ..., description="A GeoJSON Polygon or MultiPolygon geometry to search within."
+    )
+    categories: list[Literal["shops", "doctors", "schools", "restaurants"]] = Field(
+        default_factory=lambda: ["shops", "doctors", "schools", "restaurants"]
+    )
+
+
 class GeoJSONFeature(BaseModel):
     type: str = "Feature"
     geometry: dict[str, Any]

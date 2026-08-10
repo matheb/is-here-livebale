@@ -4,17 +4,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from httpx import HTTPError, HTTPStatusError
 
 from app.models.schemas import (
+    AmenitiesRequest,
     BufferRequest,
     GeoJSONFeature,
     GeoJSONFeatureCollection,
     IsochroneRequest,
     PointRequest,
 )
-from app.services import spatial_service
+from app.services import osm_service, spatial_service
 from app.services.external_api import (
     ExternalAPIClient,
     get_external_api_client,
     get_isochrone_api_client,
+    get_osm_api_client,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,9 +42,9 @@ async def get_poi(
     /reverse by default). If the lookup fails or the coordinates can't be
     resolved, the point is still returned — just without name/address.
     """
-    feature = spatial_service.get_poi(
-        lat=request.latitude,
-        long=request.longitude,
+    feature = spatial_service.poi_point(
+        latitude=request.latitude,
+        longitude=request.longitude,
     )
 
     try:
@@ -63,13 +65,11 @@ async def get_poi(
         reverse_result = {}
 
     address_details = reverse_result.get("address", {})
-    display_name = reverse_result.get("display_name", {})
     feature["properties"].update(
         {
             "name": reverse_result.get("name") or None,
             "address": reverse_result.get("display_name"),
             "address_details": address_details or None,
-            "display_name": display_name or None,
         }
     )
 
@@ -128,4 +128,42 @@ async def get_isochrone(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return result
+
+
+@router.post("/amenities", response_model=GeoJSONFeatureCollection)
+async def get_amenities(
+        request: AmenitiesRequest,
+        client: ExternalAPIClient = Depends(get_osm_api_client),
+) -> dict:
+    """Return OSM amenities (shops, doctors, schools, restaurants) within a
+    given polygon — typically an isochrone or buffer result already
+    computed on the frontend. Each returned Feature has a `category`
+    property so the frontend can render them as separate toggleable layers.
+
+    Queries Overpass by the polygon's bounding box (bbox filtering works
+    uniformly for nodes/ways/relations, unlike Overpass's `poly` filter),
+    then refines down to the actual polygon shape server-side via Shapely.
+    """
+    bbox = spatial_service.bbox_of_geometry(request.polygon)
+    query = osm_service.build_overpass_query(categories=request.categories, bbox=bbox)
+
+    try:
+        result = await client.query_overpass(query)
+    except HTTPStatusError as exc:
+        logger.warning("Amenities query failed: %s", exc)
+        raise HTTPException(status_code=exc.response.status_code, detail=str(exc)) from exc
+    except HTTPError as exc:
+        logger.warning("Amenities query failed: %s", exc)
+        raise HTTPException(
+            status_code=502, detail=f"Upstream OSM/Overpass request failed: {exc}"
+        ) from exc
+    except ValueError as exc:
+        logger.warning("Amenities query failed: %s", exc)
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    elements = result.get("elements", [])
+    features = osm_service.elements_to_geojson_features(elements)
+    features = spatial_service.filter_features_within_geometry(request.polygon, features)
+
+    return {"type": "FeatureCollection", "features": features}
 

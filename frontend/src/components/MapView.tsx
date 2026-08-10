@@ -7,10 +7,19 @@ import { default_zoom, GRAZ_COORD } from "../const/map";
 import { useState } from "react";
 import ResizeHandler from "./ResizeHandler";
 import ClickHandler from "./ClickHandler";
+import L from "leaflet";
 import { divIcon } from "leaflet";
 import { renderToString } from "react-dom/server";
+import { Amenities } from "../interfaces/amenties";
 
-const customIcon = divIcon({
+const CATEGORY_STYLE: Record<string, { color: string; label: string }> = {
+  shops: { color: "#e67e22", label: "Shop" },
+  doctors: { color: "#FF00FF", label: "Doctor" },
+  schools: { color: "#3498db", label: "School" },
+  restaurants: { color: "#27ae60", label: "Restaurant" },
+};
+
+const customHomeIcon = divIcon({
   html: renderToString(
     <div
       style={{
@@ -36,6 +45,7 @@ interface MapViewProps {
   selectedPoi: SelectedPoi | null;
   onMapClick: (latitude: number, longitude: number) => void;
   onClosePoiPopup: () => void;
+  amenities?: Amenities | null;
 }
 
 export default function MapView({
@@ -43,6 +53,7 @@ export default function MapView({
   selectedPoi,
   onMapClick,
   onClosePoiPopup,
+  amenities,
 }: MapViewProps) {
   const DEFAULT_CENTER: [number, number] = [GRAZ_COORD.lat, GRAZ_COORD.long];
   const DEFAULT_ZOOM = default_zoom;
@@ -89,32 +100,106 @@ export default function MapView({
         />
       )}
 
+      {amenities?.shops && (
+        <GeoJSON
+          // Re-mount on new data so react-leaflet's GeoJSON layer (which
+          // doesn't diff its `data` prop) actually redraws the new shape.
+          key={JSON.stringify(amenities?.shops.features.map((f) => f.properties))}
+          data={amenities?.shops}
+          pointToLayer={(feature, latlng) => {
+            const category = feature.properties?.category as string;
+            const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
+            return L.circleMarker(latlng, {
+              radius: 6,
+              color: style.color,
+              fillColor: style.color,
+              fillOpacity: 0.8,
+              weight: 1,
+            });
+          }}
+          onEachFeature={(feature, layer) => {
+            const name =
+              feature.properties?.name ?? CATEGORY_STYLE[feature.properties?.category]?.label;
+            layer.bindPopup(name);
+          }}
+        />
+      )}
+
+      {amenities?.restaurants && (
+        <GeoJSON
+          // Re-mount on new data so react-leaflet's GeoJSON layer (which
+          // doesn't diff its `data` prop) actually redraws the new shape.
+          key={JSON.stringify(amenities?.restaurants.features.map((f) => f.properties))}
+          data={amenities?.restaurants}
+          pointToLayer={(feature, latlng) => {
+            const category = feature.properties?.category as string;
+            const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
+            return L.circleMarker(latlng, {
+              radius: 6,
+              color: style.color,
+              fillColor: style.color,
+              fillOpacity: 0.8,
+              weight: 1,
+            });
+          }}
+          onEachFeature={(feature, layer) => {
+            const name =
+              feature.properties?.name ?? CATEGORY_STYLE[feature.properties?.category]?.label;
+            layer.bindPopup(name);
+          }}
+        />
+      )}
+
+      {amenities?.doctors && (
+        <GeoJSON
+          // Re-mount on new data so react-leaflet's GeoJSON layer (which
+          // doesn't diff its `data` prop) actually redraws the new shape.
+          key={JSON.stringify(amenities?.doctors.features.map((f) => f.properties))}
+          data={amenities?.doctors}
+          pointToLayer={(feature, latlng) => {
+            const category = feature.properties?.category as string;
+            const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
+            return L.circleMarker(latlng, {
+              radius: 6,
+              color: style.color,
+              fillColor: style.color,
+              fillOpacity: 0.8,
+              weight: 1,
+            });
+          }}
+          onEachFeature={(feature, layer) => {
+            const name =
+              feature.properties?.name ?? CATEGORY_STYLE[feature.properties?.category]?.label;
+            layer.bindPopup(name);
+          }}
+        />
+      )}
+
       {selectedPoi && (
         <>
-          <Marker
-            position={[selectedPoi.latitude, selectedPoi.longitude]}
-            icon={customIcon}
-          />
-          {!isPOIFetched && <Popup
-            position={[selectedPoi.latitude, selectedPoi.longitude]}
-            eventHandlers={{ remove: onClosePoiPopup }}
-          >
-            {selectedPoi.status === POI_STATUS.loading && (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <calcite-loader inline label={LABEL.loading_POI_label} />
-                <span>{LABEL.loading_POI}</span>
-              </div>
-            )}
-
-            {selectedPoi.status === POI_STATUS.error && (
-              <div>
-                {ERROR.point_details}
-                <div style={{ marginTop: "0.25rem", fontSize: "0.8em", color: "#666" }}>
-                  {selectedPoi.latitude.toFixed(5)}, {selectedPoi.longitude.toFixed(5)}
+          <Marker position={[selectedPoi.latitude, selectedPoi.longitude]} icon={customHomeIcon} />
+          {!isPOIFetched && (
+            <Popup
+              position={[selectedPoi.latitude, selectedPoi.longitude]}
+              eventHandlers={{ remove: onClosePoiPopup }}
+            >
+              {selectedPoi.status === POI_STATUS.loading && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <calcite-loader inline label={LABEL.section.loading_POI_label} />
+                  <span>{LABEL.section.loading_POI}</span>
                 </div>
-              </div>
-            )}
-          </Popup>}
+              )}
+
+              {selectedPoi.status === POI_STATUS.error && (
+                <div>
+                  {ERROR.point_details}
+                  <div style={{ marginTop: "0.25rem", fontSize: "0.8em", color: "#666" }}>
+                    {selectedPoi.latitude.toFixed(5)}, {selectedPoi.longitude.toFixed(5)}
+                  </div>
+                </div>
+              )}
+            </Popup>
+          )}
         </>
       )}
     </MapContainer>
