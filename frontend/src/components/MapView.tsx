@@ -7,38 +7,10 @@ import { default_zoom, GRAZ_COORD } from "../const/map";
 import { useState } from "react";
 import ResizeHandler from "./ResizeHandler";
 import ClickHandler from "./ClickHandler";
-import L from "leaflet";
-import { divIcon } from "leaflet";
-import { renderToString } from "react-dom/server";
 import { Amenities } from "../interfaces/amenties";
-
-const CATEGORY_STYLE: Record<string, { color: string; label: string }> = {
-  shops: { color: "#e67e22", label: "Shop" },
-  doctors: { color: "#FF00FF", label: "Doctor" },
-  schools: { color: "#3498db", label: "School" },
-  restaurants: { color: "#27ae60", label: "Restaurant" },
-};
-
-const customHomeIcon = divIcon({
-  html: renderToString(
-    <div
-      style={{
-        backgroundColor: "darkgreen",
-        color: "white",
-        borderRadius: "50%",
-        height: "30px",
-        width: "30px",
-        position: "absolute",
-        left: "-15px",
-        top: "-15px",
-        padding: "5px",
-      }}
-    >
-      <calcite-icon icon="home" style={{ position: "absolute", left: "7px", top: "7px" }} />
-    </div>,
-  ),
-  className: "",
-});
+import { createDotMarker } from "../helper/marker";
+import { CustomHomeIcon } from "../helper/HomeIcon";
+import {CATEGORY_STYLE} from "../const/color";
 
 interface MapViewProps {
   isochrone: GeoJSONFeatureCollection | null;
@@ -102,20 +74,12 @@ export default function MapView({
 
       {amenities?.shops && (
         <GeoJSON
-          // Re-mount on new data so react-leaflet's GeoJSON layer (which
-          // doesn't diff its `data` prop) actually redraws the new shape.
           key={JSON.stringify(amenities?.shops.features.map((f) => f.properties))}
           data={amenities?.shops}
           pointToLayer={(feature, latlng) => {
             const category = feature.properties?.category as string;
             const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
-            return L.circleMarker(latlng, {
-              radius: 6,
-              color: style.color,
-              fillColor: style.color,
-              fillOpacity: 0.8,
-              weight: 1,
-            });
+            return createDotMarker(latlng, style.color);
           }}
           onEachFeature={(feature, layer) => {
             const name =
@@ -127,20 +91,12 @@ export default function MapView({
 
       {amenities?.restaurants && (
         <GeoJSON
-          // Re-mount on new data so react-leaflet's GeoJSON layer (which
-          // doesn't diff its `data` prop) actually redraws the new shape.
           key={JSON.stringify(amenities?.restaurants.features.map((f) => f.properties))}
           data={amenities?.restaurants}
           pointToLayer={(feature, latlng) => {
             const category = feature.properties?.category as string;
             const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
-            return L.circleMarker(latlng, {
-              radius: 6,
-              color: style.color,
-              fillColor: style.color,
-              fillOpacity: 0.8,
-              weight: 1,
-            });
+            return createDotMarker(latlng, style.color);
           }}
           onEachFeature={(feature, layer) => {
             const name =
@@ -152,20 +108,29 @@ export default function MapView({
 
       {amenities?.doctors && (
         <GeoJSON
-          // Re-mount on new data so react-leaflet's GeoJSON layer (which
-          // doesn't diff its `data` prop) actually redraws the new shape.
           key={JSON.stringify(amenities?.doctors.features.map((f) => f.properties))}
           data={amenities?.doctors}
           pointToLayer={(feature, latlng) => {
             const category = feature.properties?.category as string;
             const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
-            return L.circleMarker(latlng, {
-              radius: 6,
-              color: style.color,
-              fillColor: style.color,
-              fillOpacity: 0.8,
-              weight: 1,
-            });
+            return createDotMarker(latlng, style.color);
+          }}
+          onEachFeature={(feature, layer) => {
+            const name =
+              feature.properties?.name ?? CATEGORY_STYLE[feature.properties?.category]?.label;
+            layer.bindPopup(name);
+          }}
+        />
+      )}
+
+      {amenities?.schools && (
+        <GeoJSON
+          key={JSON.stringify(amenities?.schools.features.map((f) => f.properties))}
+          data={amenities?.schools}
+          pointToLayer={(feature, latlng) => {
+            const category = feature.properties?.category as string;
+            const style = CATEGORY_STYLE[category] ?? { color: "#888", label: "Other" };
+            return createDotMarker(latlng, style.color);
           }}
           onEachFeature={(feature, layer) => {
             const name =
@@ -177,7 +142,7 @@ export default function MapView({
 
       {selectedPoi && (
         <>
-          <Marker position={[selectedPoi.latitude, selectedPoi.longitude]} icon={customHomeIcon} />
+          <Marker position={[selectedPoi.latitude, selectedPoi.longitude]} icon={CustomHomeIcon} />
           {!isPOIFetched && (
             <Popup
               position={[selectedPoi.latitude, selectedPoi.longitude]}

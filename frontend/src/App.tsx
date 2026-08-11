@@ -37,6 +37,7 @@ export default function App() {
 
     setIsochroneLoading(true);
     setIsochrone(null); // clear the previous shape immediately, not just on success
+    setAmenities(null);
 
     try {
       const result = await api.getIsochrone(
@@ -55,15 +56,16 @@ export default function App() {
   }
 
   async function fetchAmenitiesForIsochrone(amenity: string, isochrone?: GeoJSONFeatureCollection) {
-    // Guard against out-of-order responses the same way handleMapClick
-    // does — relevant here too since isochrone lookups can be slow
-    // (Geoapify sometimes computes them asynchronously and this polls for
-    // the result), so an earlier click's isochrone could otherwise finish
-    // after a later one and overwrite it on screen.
+    setAmenitiesLoading(true);
     const requestId = ++latestAmenitiesRequestId.current;
 
     try {
-      if(!isochrone) return;
+      if(!isochrone) {
+        if(amenities) {
+          setAmenities(null);
+        }
+        return;
+      }
       const result = await api.getAmenities(isochrone, amenity);
       if (latestAmenitiesRequestId.current !== requestId) return;
       setAmenities({
@@ -83,7 +85,6 @@ export default function App() {
 
     // Show a marker at the clicked point immediately, in a loading state,
     // while the POI lookup (with reverse-geocoded name/address) resolves.
-
     setSelectedPoi({ latitude, longitude, status: POI_STATUS.loading, name: null, address: null });
 
     // Fetch the isochrone in parallel — it's a separate concern from the
@@ -108,90 +109,119 @@ export default function App() {
 
   return (
     <calcite-shell className="app-shell">
-      <div className="grid-container">
+      <div className="grid-container" style={{ margin: 0 }}>
         <calcite-tile
           className="panel-title"
           heading={SITE_HEADING}
           description={SITE_SUBTITLE}
         ></calcite-tile>
 
-        <calcite-tile
-          className="panel-info"
-          heading={selectedPoi?.name ?? LABEL.section.selected_POI_label_placeholder}
-          description={selectedPoi?.address ?? ""}
-        ></calcite-tile>
+        {!selectedPoi && (
+          <calcite-tile
+            className="panel-info"
+            heading={LABEL.section.how_to_use_title}
+            description={LABEL.section.how_to_use_description}
+          ></calcite-tile>
+        )}
 
-        <calcite-panel className="panel-filter">
-          <div
-            style={{
-              padding: "0.75rem 1rem",
-              display: "flex",
-              gap: "0.75rem",
-              alignItems: "end",
-              flexWrap: "wrap",
-            }}
-          >
-            <calcite-label style={{ maxWidth: 160 }}>
-              {LABEL.input.mode_of_commute}
-              <calcite-select
-                value={isochroneMode}
-                label={""}
-                oncalciteSelectChange={(e) => {
-                  return setIsochroneMode(
-                    (e.target as unknown as HTMLSelectElement).value as IsochroneMode,
-                  );
-                }}
-              >
-                <calcite-option value={COMMUTE_MODE.walk}>Walk</calcite-option>
-                <calcite-option value={COMMUTE_MODE.bicycle}>Bicycle</calcite-option>
-                <calcite-option value={COMMUTE_MODE.drive}>Drive</calcite-option>
-                <calcite-option value={COMMUTE_MODE.transit}>Public transit</calcite-option>
-              </calcite-select>
-            </calcite-label>
-            <calcite-label style={{ maxWidth: 120 }}>
-              Range (min)
-              <calcite-input
-                type="number"
-                value={isochroneRangeMinutes}
-                oncalciteInputInput={(e) =>
-                  setIsochroneRangeMinutes((e.target as unknown as HTMLInputElement).value)
-                }
-              />
-            </calcite-label>
+        {selectedPoi && (
+          <calcite-tile
+            className="panel-info"
+            heading={selectedPoi?.name ?? LABEL.section.selected_POI_label_placeholder}
+            description={selectedPoi?.address ?? ""}
+          ></calcite-tile>
+        )}
 
-            {selectedPoi && (
-              <calcite-button
-                appearance="outline"
-                loading={isochroneLoading}
-                onClick={() =>
-                  fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
-                }
-              >
-                {LABEL.button.update_isochron}
-              </calcite-button>
-            )}
+        <div
+          className="panel-commute"
+        >
+          <calcite-label style={{ maxWidth: 160 }}>
+            {LABEL.input.mode_of_commute}
+            <calcite-select
+              value={isochroneMode}
+              label={""}
+              oncalciteSelectChange={(e) => {
+                return setIsochroneMode(
+                  (e.target as unknown as HTMLSelectElement).value as IsochroneMode,
+                );
+              }}
+            >
+              <calcite-option value={COMMUTE_MODE.walk}>Walk</calcite-option>
+              <calcite-option value={COMMUTE_MODE.bicycle}>Bicycle</calcite-option>
+              <calcite-option value={COMMUTE_MODE.drive}>Drive</calcite-option>
+              <calcite-option value={COMMUTE_MODE.transit}>Public transit</calcite-option>
+            </calcite-select>
+          </calcite-label>
+          <calcite-label style={{ maxWidth: 120 }}>
+            {LABEL.input.range_of_commute}
+            <calcite-input
+              type="number"
+              value={isochroneRangeMinutes}
+              oncalciteInputInput={(e) =>
+                setIsochroneRangeMinutes((e.target as unknown as HTMLInputElement).value)
+              }
+            />
+          </calcite-label>
+          {selectedPoi && (
+            <calcite-button
+              appearance="outline"
+              loading={isochroneLoading}
+              onClick={() =>
+                fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
+              }
+            >
+              {LABEL.button.update_isochron}
+            </calcite-button>
+          )}
+        </div>
 
-            {isochrone && (
-              <calcite-button
-                appearance="outline"
-                loading={amenitiesLoading}
-                onClick={() => fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone)}
-              >
-                {LABEL.button.shops}
-              </calcite-button>
-            )}
+        <div
+          className="panel-amenities"
+        >
+          {isochrone && (
+            <calcite-button
+              appearance={amenities?.shops ? "solid" : "outline-fill"}
+              round={true}
+              loading={amenitiesLoading}
+              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone)}
+            >
+              {LABEL.button.shops}
+            </calcite-button>
+          )}
 
-            {isochrone && (
-              <calcite-button
-                appearance="outline"
-                loading={amenitiesLoading}
-                onClick={() => fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone)}
-              >
-                {LABEL.button.doctors}
-              </calcite-button>
-            )}
-          </div>
-        </calcite-panel>
+          {isochrone && (
+            <calcite-button
+              appearance={amenities?.doctors ? "solid" : "outline-fill"}
+              round={true}
+              loading={amenitiesLoading}
+              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone)}
+            >
+              {LABEL.button.doctors}
+            </calcite-button>
+          )}
+
+          {isochrone && (
+            <calcite-button
+              appearance={amenities?.schools ? "solid" : "outline-fill"}
+              round={true}
+              loading={amenitiesLoading}
+              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone)}
+            >
+              {LABEL.button.schools}
+            </calcite-button>
+          )}
+
+          {isochrone && (
+            <calcite-button
+              appearance={amenities?.restaurants ? "solid" : "outline-fill"}
+              round={true}
+              loading={amenitiesLoading}
+              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone)}
+            >
+              {LABEL.button.restaurants}
+            </calcite-button>
+          )}
+        </div>
 
         <calcite-panel className="panel-map">
           <MapView
