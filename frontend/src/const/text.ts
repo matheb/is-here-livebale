@@ -8,11 +8,12 @@ export const LABEL = {
     loading_POI_label: "Loading point details",
     loading_POI: "Looking up this point…",
     how_to_use_title: "INFO",
-    how_to_use_description: "Click anywhere on the map to select the location of your prospective home"
+    how_to_use_description:
+      "Click anywhere on the map to select the location of your prospective home",
   },
   input: {
     mode_of_commute: "Mode of commute",
-    range_of_commute: "Range (min)"
+    range_of_commute: "Range (min)",
   },
   button: {
     update_isochron: "Update isochrone",
@@ -20,7 +21,10 @@ export const LABEL = {
     shops: "Shops",
     doctors: "Doctors",
     restaurants: "Restaurants",
-    schools: "Schools"
+    schools: "Schools",
+  },
+  legend: {
+    amenities: "Amenities",
   },
 };
 

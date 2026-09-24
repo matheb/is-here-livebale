@@ -1,15 +1,15 @@
 // From now on, from now on...
 
-import {useRef, useState} from "react";
+import { useRef, useState } from "react";
 
-import {api, type GeoJSONFeatureCollection, type IsochroneMode} from "./api/client";
+import { api, type GeoJSONFeatureCollection, type IsochroneMode } from "./api/client";
 import MapView from "./components/MapView";
 import { ToggleButton } from "./components/ToggleButton";
-import type {SelectedPoi} from "./interfaces/poi";
-import {POI_STATUS} from "./const/status";
+import type { SelectedPoi } from "./interfaces/poi";
+import { POI_STATUS } from "./const/status";
 import { LABEL, SITE_HEADING, SITE_SUBTITLE } from "./const/text";
 import { AMENITIES, COMMUTE_MODE } from "./const/map";
-import {Amenities} from "./interfaces/amenties";
+import { type ActiveAmenities, Amenities, type AmenityCache } from "./interfaces/amenties";
 
 export default function App() {
   const [selectedPoi, setSelectedPoi] = useState<SelectedPoi | null>(null);
@@ -21,8 +21,9 @@ export default function App() {
   const [isochroneLoading, setIsochroneLoading] = useState(false);
   const latestIsochroneRequestId = useRef(0);
 
-
-  const [amenities, setAmenities] = useState<Amenities | null>(null);
+  const [amenityCache, setAmenityCache] = useState<AmenityCache>({});
+  const [activeAmenities, setActiveAmenities] = useState<ActiveAmenities>({});
+  const [amenitiesLoading, setAmenitiesLoading] = useState<ActiveAmenities>({});
   const latestAmenitiesRequestId = useRef(0);
 
   async function fetchIsochroneFor(
@@ -39,7 +40,6 @@ export default function App() {
 
     setIsochroneLoading(true);
     setIsochrone(null); // clear the previous shape immediately, not just on success
-    setAmenities(null);
 
     try {
       const result = await api.getIsochrone(
@@ -61,27 +61,46 @@ export default function App() {
     const requestId = ++latestAmenitiesRequestId.current;
 
     try {
-      if(!isochrone) {
-        if(amenities) {
-          setAmenities(null);
-        }
+      if (!isochrone || !selectedPoi) {
         return;
       }
+
+      const cacheKey = `${selectedPoi.latitude},${selectedPoi.longitude},${isochroneMode},${isochroneRangeMinutes}`;
+
+      if (amenityCache[cacheKey]?.[amenity]) {
+        setActiveAmenities((prev) => ({ ...prev, [amenity]: true }));
+        return;
+      }
+
+      setAmenitiesLoading((prev) => ({ ...prev, [amenity]: true }));
+
       const result = await api.getAmenities(isochrone, amenity);
       if (latestAmenitiesRequestId.current !== requestId) return;
 
-      setAmenities((prev) => {
-        const next = { ...prev };
-        // If the user toggled it off, we could remove it,
-        // but usually, we want to keep existing ones and add/update the current one.
-        // To strictly follow the ToggleButton state, we check the result.
-        // If result is empty or we want to remove it, we'd handle it here.
-        // For now, we merge the results.
-        next[amenity] = result;
-        return next;
-      });
+      // Only set as active if we actually received data (features array is not empty)
+      if (result && result.features && result.features.length > 0) {
+        setAmenityCache((prev) => {
+          const next = { ...prev };
+          if (!next[cacheKey]) {
+            next[cacheKey] = {};
+          }
+          next[cacheKey][amenity] = result;
+          return next;
+        });
+
+        setActiveAmenities((prev) => ({ ...prev, [amenity]: true }));
+      } else {
+        // No data found for this amenity type in this area
+        setActiveAmenities((prev) => ({ ...prev, [amenity]: false }));
+      }
     } catch (err) {
       if (latestAmenitiesRequestId.current !== requestId) return;
+      // Ensure that if fetch fails, it's not marked as active
+      setActiveAmenities((prev) => ({ ...prev, [amenity]: false }));
+    } finally {
+      if (latestAmenitiesRequestId.current === requestId) {
+        setAmenitiesLoading((prev) => ({ ...prev, [amenity]: false }));
+      }
     }
   }
 
@@ -93,6 +112,8 @@ export default function App() {
     // Show a marker at the clicked point immediately, in a loading state,
     // while the POI lookup (with reverse-geocoded name/address) resolves.
     setSelectedPoi({ latitude, longitude, status: POI_STATUS.loading, name: null, address: null });
+    setActiveAmenities({});
+    setAmenitiesLoading({});
 
     // Fetch the isochrone in parallel — it's a separate concern from the
     // POI lookup and shouldn't block on it, or vice versa.
@@ -112,6 +133,20 @@ export default function App() {
       if (latestPoiRequestId.current !== requestId) return;
       setSelectedPoi({ latitude, longitude, status: POI_STATUS.error, name: null, address: null });
     }
+  }
+
+  function getActiveAmenitiesForMap(): Amenities | null {
+    if (!selectedPoi) return null;
+
+    const cacheKey = `${selectedPoi.latitude},${selectedPoi.longitude},${isochroneMode},${isochroneRangeMinutes}`;
+
+    return Object.entries(activeAmenities)
+      .filter(([_, active]) => active)
+      .reduce((acc, [type, _]) => {
+        const data = amenityCache[cacheKey]?.[type];
+        if (data) acc[type] = data;
+        return acc;
+      }, {} as Amenities);
   }
 
   return (
@@ -139,18 +174,16 @@ export default function App() {
           ></calcite-tile>
         )}
 
-        <div
-          className="panel-commute"
-        >
+        <div className="panel-commute">
           <calcite-label style={{ maxWidth: 160 }}>
             {LABEL.input.mode_of_commute}
             <calcite-select
               value={isochroneMode}
               label={""}
               oncalciteSelectChange={(e) => {
-                return setIsochroneMode(
-                  (e.target as unknown as HTMLSelectElement).value as IsochroneMode,
-                );
+                const newValue = (e.target as unknown as HTMLSelectElement).value as IsochroneMode;
+                setIsochroneMode(newValue);
+                setActiveAmenities({});
               }}
             >
               <calcite-option value={COMMUTE_MODE.walk}>Walk</calcite-option>
@@ -164,9 +197,11 @@ export default function App() {
             <calcite-input
               type="number"
               value={isochroneRangeMinutes}
-              oncalciteInputInput={(e) =>
-                setIsochroneRangeMinutes((e.target as unknown as HTMLInputElement).value)
-              }
+              oncalciteInputInput={(e) => {
+                const newValue = (e.target as unknown as HTMLInputElement).value;
+                setIsochroneRangeMinutes(newValue);
+                setActiveAmenities({});
+              }}
             />
           </calcite-label>
           {selectedPoi && (
@@ -182,23 +217,17 @@ export default function App() {
           )}
         </div>
 
-        <div
-          className="panel-amenities"
-        >
+        <div className="panel-amenities">
           {isochrone && (
             <ToggleButton
               label={LABEL.button.shops}
-              selected={!!amenities?.shops}
+              selected={!!activeAmenities[AMENITIES.shops]}
+              loading={!!amenitiesLoading[AMENITIES.shops]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone);
                 } else {
-                  setAmenities((prev) => {
-                    if (!prev) return null;
-                    const next = { ...prev };
-                    delete next[AMENITIES.shops];
-                    return Object.keys(next).length > 0 ? next : null;
-                  });
+                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.shops]: false }));
                 }
               }}
             />
@@ -207,17 +236,13 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.doctors}
-              selected={!!amenities?.doctors}
+              selected={!!activeAmenities[AMENITIES.doctors]}
+              loading={!!amenitiesLoading[AMENITIES.doctors]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone);
                 } else {
-                  setAmenities((prev) => {
-                    if (!prev) return null;
-                    const next = { ...prev };
-                    delete next[AMENITIES.doctors];
-                    return Object.keys(next).length > 0 ? next : null;
-                  });
+                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.doctors]: false }));
                 }
               }}
             />
@@ -226,17 +251,13 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.schools}
-              selected={!!amenities?.schools}
+              selected={!!activeAmenities[AMENITIES.schools]}
+              loading={!!amenitiesLoading[AMENITIES.schools]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone);
                 } else {
-                  setAmenities((prev) => {
-                    if (!prev) return null;
-                    const next = { ...prev };
-                    delete next[AMENITIES.schools];
-                    return Object.keys(next).length > 0 ? next : null;
-                  });
+                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.schools]: false }));
                 }
               }}
             />
@@ -245,17 +266,13 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.restaurants}
-              selected={!!amenities?.restaurants}
+              selected={!!activeAmenities[AMENITIES.restaurants]}
+              loading={!!amenitiesLoading[AMENITIES.restaurants]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone);
                 } else {
-                  setAmenities((prev) => {
-                    if (!prev) return null;
-                    const next = { ...prev };
-                    delete next[AMENITIES.restaurants];
-                    return Object.keys(next).length > 0 ? next : null;
-                  });
+                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.restaurants]: false }));
                 }
               }}
             />
@@ -265,7 +282,7 @@ export default function App() {
         <calcite-panel className="panel-map">
           <MapView
             isochrone={isochrone}
-            amenities={amenities}
+            amenities={getActiveAmenitiesForMap()}
             selectedPoi={selectedPoi}
             onMapClick={handleMapClick}
             onClosePoiPopup={() => {

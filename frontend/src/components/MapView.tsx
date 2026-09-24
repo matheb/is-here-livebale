@@ -10,7 +10,8 @@ import ClickHandler from "./ClickHandler";
 import { Amenities } from "../interfaces/amenties";
 import { createDotMarker } from "../helper/marker";
 import { CustomHomeIcon } from "../helper/HomeIcon";
-import {CATEGORY_STYLE} from "../const/color";
+import { CATEGORY_STYLE } from "../const/color";
+import LegendControl from "./LegendControl";
 
 interface MapViewProps {
   isochrone: GeoJSONFeatureCollection | null;
@@ -167,6 +168,19 @@ export default function MapView({
           )}
         </>
       )}
+
+      {/* Simple Legend overlay using basic CSS positioning inside the MapContainer */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "20px",
+          right: "20px",
+          zIndex: 1000,
+          pointerEvents: "none",
+        }}
+      >
+        <LegendControl />
+      </div>
     </MapContainer>
   );
 }

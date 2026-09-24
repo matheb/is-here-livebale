@@ -7,6 +7,8 @@ interface ToggleButtonProps {
   label: string;
   /** Callback function triggered when the toggle state changes. */
   onToggle?: (isSelected: boolean) => void;
+  /** Loading state to show a spinner on the button. */
+  loading?: boolean;
 }
 
 /**
@@ -17,8 +19,14 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   selected = false,
   label,
   onToggle,
+  loading = false,
 }) => {
   const [isSelected, setIsSelected] = useState(selected);
+
+  // Sync internal state with the 'selected' prop
+  React.useEffect(() => {
+    setIsSelected(selected);
+  }, [selected]);
 
   const handleToggle = () => {
     const newState = !isSelected;
@@ -29,7 +37,11 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   };
 
   return (
-    <calcite-button appearance={isSelected ? "solid" : "outline"} onClick={handleToggle}>
+    <calcite-button
+      appearance={isSelected ? "solid" : "outline"}
+      onClick={handleToggle}
+      loading={loading}
+    >
       {label}
     </calcite-button>
   );
