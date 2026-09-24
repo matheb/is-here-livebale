@@ -1,7 +1,10 @@
+// From now on, from now on...
+
 import {useRef, useState} from "react";
 
 import {api, type GeoJSONFeatureCollection, type IsochroneMode} from "./api/client";
 import MapView from "./components/MapView";
+import { ToggleButton } from "./components/ToggleButton";
 import type {SelectedPoi} from "./interfaces/poi";
 import {POI_STATUS} from "./const/status";
 import { LABEL, SITE_HEADING, SITE_SUBTITLE } from "./const/text";
@@ -20,7 +23,6 @@ export default function App() {
 
 
   const [amenities, setAmenities] = useState<Amenities | null>(null);
-  const [amenitiesLoading, setAmenitiesLoading] = useState(false);
   const latestAmenitiesRequestId = useRef(0);
 
   async function fetchIsochroneFor(
@@ -56,7 +58,6 @@ export default function App() {
   }
 
   async function fetchAmenitiesForIsochrone(amenity: string, isochrone?: GeoJSONFeatureCollection) {
-    setAmenitiesLoading(true);
     const requestId = ++latestAmenitiesRequestId.current;
 
     try {
@@ -68,13 +69,19 @@ export default function App() {
       }
       const result = await api.getAmenities(isochrone, amenity);
       if (latestAmenitiesRequestId.current !== requestId) return;
-      setAmenities({
-        [amenity]: result,
+
+      setAmenities((prev) => {
+        const next = { ...prev };
+        // If the user toggled it off, we could remove it,
+        // but usually, we want to keep existing ones and add/update the current one.
+        // To strictly follow the ToggleButton state, we check the result.
+        // If result is empty or we want to remove it, we'd handle it here.
+        // For now, we merge the results.
+        next[amenity] = result;
+        return next;
       });
     } catch (err) {
       if (latestAmenitiesRequestId.current !== requestId) return;
-    } finally {
-      if (latestAmenitiesRequestId.current === requestId) setAmenitiesLoading(false);
     }
   }
 
@@ -179,47 +186,79 @@ export default function App() {
           className="panel-amenities"
         >
           {isochrone && (
-            <calcite-button
-              appearance={amenities?.shops ? "solid" : "outline-fill"}
-              round={true}
-              loading={amenitiesLoading}
-              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone)}
-            >
-              {LABEL.button.shops}
-            </calcite-button>
+            <ToggleButton
+              label={LABEL.button.shops}
+              selected={!!amenities?.shops}
+              onToggle={(isSelected) => {
+                if (isSelected) {
+                  fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone);
+                } else {
+                  setAmenities((prev) => {
+                    if (!prev) return null;
+                    const next = { ...prev };
+                    delete next[AMENITIES.shops];
+                    return Object.keys(next).length > 0 ? next : null;
+                  });
+                }
+              }}
+            />
           )}
 
           {isochrone && (
-            <calcite-button
-              appearance={amenities?.doctors ? "solid" : "outline-fill"}
-              round={true}
-              loading={amenitiesLoading}
-              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone)}
-            >
-              {LABEL.button.doctors}
-            </calcite-button>
+            <ToggleButton
+              label={LABEL.button.doctors}
+              selected={!!amenities?.doctors}
+              onToggle={(isSelected) => {
+                if (isSelected) {
+                  fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone);
+                } else {
+                  setAmenities((prev) => {
+                    if (!prev) return null;
+                    const next = { ...prev };
+                    delete next[AMENITIES.doctors];
+                    return Object.keys(next).length > 0 ? next : null;
+                  });
+                }
+              }}
+            />
           )}
 
           {isochrone && (
-            <calcite-button
-              appearance={amenities?.schools ? "solid" : "outline-fill"}
-              round={true}
-              loading={amenitiesLoading}
-              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone)}
-            >
-              {LABEL.button.schools}
-            </calcite-button>
+            <ToggleButton
+              label={LABEL.button.schools}
+              selected={!!amenities?.schools}
+              onToggle={(isSelected) => {
+                if (isSelected) {
+                  fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone);
+                } else {
+                  setAmenities((prev) => {
+                    if (!prev) return null;
+                    const next = { ...prev };
+                    delete next[AMENITIES.schools];
+                    return Object.keys(next).length > 0 ? next : null;
+                  });
+                }
+              }}
+            />
           )}
 
           {isochrone && (
-            <calcite-button
-              appearance={amenities?.restaurants ? "solid" : "outline-fill"}
-              round={true}
-              loading={amenitiesLoading}
-              onClick={() => fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone)}
-            >
-              {LABEL.button.restaurants}
-            </calcite-button>
+            <ToggleButton
+              label={LABEL.button.restaurants}
+              selected={!!amenities?.restaurants}
+              onToggle={(isSelected) => {
+                if (isSelected) {
+                  fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone);
+                } else {
+                  setAmenities((prev) => {
+                    if (!prev) return null;
+                    const next = { ...prev };
+                    delete next[AMENITIES.restaurants];
+                    return Object.keys(next).length > 0 ? next : null;
+                  });
+                }
+              }}
+            />
           )}
         </div>
 
