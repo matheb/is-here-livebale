@@ -159,23 +159,35 @@ export default function App() {
         ></calcite-tile>
 
         {!selectedPoi && (
-          <calcite-tile
-            className="panel-info"
-            heading={LABEL.section.how_to_use_title}
-            description={LABEL.section.how_to_use_description}
-          ></calcite-tile>
+          <div
+            className="panel-info-wrapper panel-info-default"
+            style={{ gridArea: "panel-info", margin: "1rem" }}
+          >
+            <calcite-icon icon="information" style={{ color: "#005e95", fontSize: "large" }} />
+            <calcite-tile
+              className="panel-info-tile"
+              heading={LABEL.section.how_to_use_title}
+              description={LABEL.section.how_to_use_description}
+            ></calcite-tile>
+          </div>
         )}
 
         {selectedPoi && (
-          <calcite-tile
-            className="panel-info"
-            heading={selectedPoi?.name ?? LABEL.section.selected_POI_label_placeholder}
-            description={selectedPoi?.address ?? ""}
-          ></calcite-tile>
+          <div
+            className="panel-info-wrapper panel-info-selected"
+            style={{ gridArea: "panel-info", margin: "1rem" }}
+          >
+            <calcite-icon icon="home" style={{ color: "darkgreen" }} />
+            <calcite-tile
+              className="panel-info-tile"
+              heading={selectedPoi?.name ?? LABEL.section.selected_POI_label_placeholder}
+              description={selectedPoi?.address ?? ""}
+            ></calcite-tile>
+          </div>
         )}
 
         <div className="panel-commute">
-          <calcite-label style={{ maxWidth: 160 }}>
+          <calcite-label className="panel-commute-label">
             {LABEL.input.mode_of_commute}
             <calcite-select
               value={isochroneMode}
@@ -192,7 +204,7 @@ export default function App() {
               <calcite-option value={COMMUTE_MODE.transit}>Public transit</calcite-option>
             </calcite-select>
           </calcite-label>
-          <calcite-label style={{ maxWidth: 120 }}>
+          <calcite-label className="panel-commute-label-small">
             {LABEL.input.range_of_commute}
             <calcite-input
               type="number"
@@ -205,77 +217,189 @@ export default function App() {
             />
           </calcite-label>
           {selectedPoi && (
-            <calcite-button
-              appearance="outline"
-              loading={isochroneLoading}
-              onClick={() =>
-                fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
-              }
-            >
-              {LABEL.button.update_isochron}
-            </calcite-button>
+            <calcite-label className="panel-commute-label">
+              <span className="label-hidden-text">{LABEL.button.update_isochron}</span>
+              <calcite-button
+                className="panel-commute-button"
+                appearance="outline"
+                loading={isochroneLoading}
+                onClick={() =>
+                  fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
+                }
+              >
+                {LABEL.button.update_isochron}
+              </calcite-button>
+            </calcite-label>
           )}
         </div>
 
         <div className="panel-amenities">
           {isochrone && (
-            <ToggleButton
-              label={LABEL.button.shops}
-              selected={activeAmenities[AMENITIES.shops] ?? false}
-              loading={amenitiesLoading[AMENITIES.shops]}
-              onToggle={(isSelected) => {
-                if (isSelected) {
-                  fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone);
-                } else {
-                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.shops]: false }));
-                }
-              }}
-            />
+            <calcite-label className="panel-amenities-label">
+              <span className="label-hidden-text">{LABEL.button.shops}</span>
+              <ToggleButton
+                label={LABEL.button.shops}
+                selected={activeAmenities[AMENITIES.shops] ?? false}
+                loading={amenitiesLoading[AMENITIES.shops]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.shops]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
           )}
 
           {isochrone && (
-            <ToggleButton
-              label={LABEL.button.doctors}
-              selected={activeAmenities[AMENITIES.doctors] ?? false}
-              loading={amenitiesLoading[AMENITIES.doctors]}
-              onToggle={(isSelected) => {
-                if (isSelected) {
-                  fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone);
-                } else {
-                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.doctors]: false }));
-                }
-              }}
-            />
+            <calcite-label className="panel-amenities-label">
+              <span className="label-hidden-text">{LABEL.button.doctors}</span>
+              <ToggleButton
+                label={LABEL.button.doctors}
+                selected={activeAmenities[AMENITIES.doctors] ?? false}
+                loading={amenitiesLoading[AMENITIES.doctors]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.doctors]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
           )}
 
           {isochrone && (
-            <ToggleButton
-              label={LABEL.button.schools}
-              selected={activeAmenities[AMENITIES.schools] ?? false}
-              loading={amenitiesLoading[AMENITIES.schools]}
-              onToggle={(isSelected) => {
-                if (isSelected) {
-                  fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone);
-                } else {
-                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.schools]: false }));
-                }
-              }}
-            />
+            <calcite-label className="panel-amenities-label">
+              <span className="label-hidden-text">{LABEL.button.schools}</span>
+              <ToggleButton
+                label={LABEL.button.schools}
+                selected={activeAmenities[AMENITIES.schools] ?? false}
+                loading={amenitiesLoading[AMENITIES.schools]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.schools]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
           )}
 
           {isochrone && (
-            <ToggleButton
-              label={LABEL.button.restaurants}
-              selected={activeAmenities[AMENITIES.restaurants] ?? false}
-              loading={amenitiesLoading[AMENITIES.restaurants]}
-              onToggle={(isSelected) => {
-                if (isSelected) {
-                  fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone);
-                } else {
-                  setActiveAmenities((prev) => ({ ...prev, [AMENITIES.restaurants]: false }));
-                }
+            <calcite-label className="panel-amenities-label">
+              <span className="label-hidden-text">{LABEL.button.restaurants}</span>
+              <ToggleButton
+                label={LABEL.button.restaurants}
+                selected={activeAmenities[AMENITIES.restaurants] ?? false}
+                loading={amenitiesLoading[AMENITIES.restaurants]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.restaurants]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
+          )}
+        </div>InputInput={(e) => {
+                const newValue = (e.target as unknown as HTMLInputElement).value;
+                setIsochroneRangeMinutes(newValue);
+                setActiveAmenities({});
               }}
             />
+          </calcite-label>
+          {selectedPoi && (
+            <calcite-label style={{ maxWidth: 160, fontWeight: "bold" }}>
+              <span style={{ display: "block", visibility: "hidden" }}>{LABEL.button.update_isochron}</span>
+              <calcite-button
+                appearance="outline"
+                loading={isochroneLoading}
+                style={{ height: "32px", width: "auto", minWidth: "120px" }}
+                onClick={() =>
+                  fetchIsochroneFor(selectedPoi.latitude, selectedPoi.longitude, isochroneMode)
+                }
+              >
+                {LABEL.button.update_isochron}
+              </calcite-button>
+            </calcite-label>
+          )}
+        </div>
+
+        <div className="panel-amenities" style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", height: "auto" }}>
+          {isochrone && (
+            <calcite-label style={{ fontWeight: "bold" }}>
+              <span style={{ display: "block", visibility: "hidden" }}>{LABEL.button.shops}</span>
+              <ToggleButton
+                label={LABEL.button.shops}
+                selected={activeAmenities[AMENITIES.shops] ?? false}
+                loading={amenitiesLoading[AMENITIES.shops]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.shops]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
+          )}
+
+          {isochrone && (
+            <calcite-label style={{ fontWeight: "bold" }}>
+              <span style={{ display: "block", visibility: "hidden" }}>{LABEL.button.doctors}</span>
+              <ToggleButton
+                label={LABEL.button.doctors}
+                selected={activeAmenities[AMENITIES.doctors] ?? false}
+                loading={amenitiesLoading[AMENITIES.doctors]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.doctors]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
+          )}
+
+          {isochrone && (
+            <calcite-label style={{ fontWeight: "bold" }}>
+              <span style={{ display: "block", visibility: "hidden" }}>{LABEL.button.schools}</span>
+              <ToggleButton
+                label={LABEL.button.schools}
+                selected={activeAmenities[AMENITIES.schools] ?? false}
+                loading={amenitiesLoading[AMENITIES.schools]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.schools]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
+          )}
+
+          {isochrone && (
+            <calcite-label style={{ fontWeight: "bold" }}>
+              <span style={{ display: "block", visibility: "hidden" }}>{LABEL.button.restaurants}</span>
+              <ToggleButton
+                label={LABEL.button.restaurants}
+                selected={activeAmenities[AMENITIES.restaurants] ?? false}
+                loading={amenitiesLoading[AMENITIES.restaurants]}
+                onToggle={(isSelected) => {
+                  if (isSelected) {
+                    fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone);
+                  } else {
+                    setActiveAmenities((prev) => ({ ...prev, [AMENITIES.restaurants]: false }));
+                  }
+                }}
+              />
+            </calcite-label>
           )}
         </div>
 
