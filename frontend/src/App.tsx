@@ -95,7 +95,7 @@ export default function App() {
       }
     } catch (err) {
       if (latestAmenitiesRequestId.current !== requestId) return;
-      // Ensure that if fetch fails, it's not marked as active
+      // Ensure that if fetch fails (timeout, network error, etc.), it's not marked as active
       setActiveAmenities((prev) => ({ ...prev, [amenity]: false }));
     } finally {
       if (latestAmenitiesRequestId.current === requestId) {
@@ -221,8 +221,8 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.shops}
-              selected={!!activeAmenities[AMENITIES.shops]}
-              loading={!!amenitiesLoading[AMENITIES.shops]}
+              selected={activeAmenities[AMENITIES.shops] ?? false}
+              loading={amenitiesLoading[AMENITIES.shops]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.shops, isochrone);
@@ -236,8 +236,8 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.doctors}
-              selected={!!activeAmenities[AMENITIES.doctors]}
-              loading={!!amenitiesLoading[AMENITIES.doctors]}
+              selected={activeAmenities[AMENITIES.doctors] ?? false}
+              loading={amenitiesLoading[AMENITIES.doctors]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.doctors, isochrone);
@@ -251,8 +251,8 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.schools}
-              selected={!!activeAmenities[AMENITIES.schools]}
-              loading={!!amenitiesLoading[AMENITIES.schools]}
+              selected={activeAmenities[AMENITIES.schools] ?? false}
+              loading={amenitiesLoading[AMENITIES.schools]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.schools, isochrone);
@@ -266,8 +266,8 @@ export default function App() {
           {isochrone && (
             <ToggleButton
               label={LABEL.button.restaurants}
-              selected={!!activeAmenities[AMENITIES.restaurants]}
-              loading={!!amenitiesLoading[AMENITIES.restaurants]}
+              selected={activeAmenities[AMENITIES.restaurants] ?? false}
+              loading={amenitiesLoading[AMENITIES.restaurants]}
               onToggle={(isSelected) => {
                 if (isSelected) {
                   fetchAmenitiesForIsochrone(AMENITIES.restaurants, isochrone);

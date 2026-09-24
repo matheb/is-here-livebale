@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
 
 interface ToggleButtonProps {
-  /** Initial selection state. */
+  /** Selection state controlled by the parent. */
   selected?: boolean;
   /** The text to display on the button. */
   label: string;
@@ -13,7 +13,7 @@ interface ToggleButtonProps {
 
 /**
  * A toggle button component that uses Calcite Design System.
- * It manages its own internal state for selection.
+ * This is a controlled component; its state is managed by the parent.
  */
 export const ToggleButton: React.FC<ToggleButtonProps> = ({
   selected = false,
@@ -21,26 +21,22 @@ export const ToggleButton: React.FC<ToggleButtonProps> = ({
   onToggle,
   loading = false,
 }) => {
-  const [isSelected, setIsSelected] = useState(selected);
-
-  // Sync internal state with the 'selected' prop
-  React.useEffect(() => {
-    setIsSelected(selected);
-  }, [selected]);
-
   const handleToggle = () => {
-    const newState = !isSelected;
-    setIsSelected(newState);
     if (onToggle) {
-      onToggle(newState);
+      onToggle(!selected);
     }
   };
 
   return (
     <calcite-button
-      appearance={isSelected ? "solid" : "outline"}
+      appearance={selected ? "solid" : "outline"}
       onClick={handleToggle}
       loading={loading}
+      style={{
+        borderRadius: "20px",
+        "--calcite-ui-button-border-radius": "20px",
+        "--calcite-ui-button-border-width": "1px"
+      }}
     >
       {label}
     </calcite-button>
